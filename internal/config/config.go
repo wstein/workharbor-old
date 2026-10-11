@@ -243,6 +243,9 @@ type Config struct {
 	// Budgets limit the tokens and the cost a run and a task may use (design
 	// §7.4). Optional: none means no limit.
 	Budgets Budgets `json:"budgets,omitzero"`
+	// ToolWatchdog limits tool output silence on adapters that explicitly
+	// support the optional watchdog contract. It never limits run duration.
+	ToolWatchdog ToolWatchdog `json:"tool_watchdog,omitzero"`
 	// Limits say when a provider limit the agent reported counts as low.
 	Limits Limits `json:"limits,omitzero"`
 	// Preview turns on the preview proxy (D33, issue #72): the loopback ports a
@@ -505,6 +508,9 @@ func (c *Config) Validate() error {
 		if l.MaxTokens < 0 || l.MaxCostUSD < 0 || math.IsNaN(l.MaxCostUSD) || math.IsInf(l.MaxCostUSD, 0) {
 			add("%s: a limit cannot be negative", name)
 		}
+	}
+	if _, _, err := c.ToolWatchdog.Thresholds(); err != nil {
+		add("tool_watchdog: %s", err)
 	}
 	for i, h := range c.Console.EgressAllow {
 		if !validEgressEntry(h) {

@@ -161,6 +161,14 @@
       }
     },
     "account": { "type": "string", "enum": ["dedicated", "shared"] },
+    "tool_watchdog": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "warn_after": { "type": "string", "description": "Positive Go duration; default 10m, less than abort_after." },
+        "abort_after": { "type": "string", "description": "Positive Go duration; default 30m. Requires verified tool-only cancellation support." }
+      }
+    },
     "development_prefix": { "type": "string", "description": "Retired; accepted so older files load, and ignored." },
     "agent_permission_mode": { "type": "string", "enum": ["dontAsk", "manual"] },
     "agent_allowed_tools": { "type": "array", "items": { "type": "string" } }
