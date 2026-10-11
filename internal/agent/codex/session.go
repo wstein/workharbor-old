@@ -19,6 +19,7 @@ type session struct {
 	events         chan agent.Event
 	done           chan struct{}
 	reaped         <-chan struct{}
+	commandOutput  *commandOutputTranslator
 	generation     string
 	approvals      sync.WaitGroup
 	open           chan struct{}
@@ -37,8 +38,13 @@ func newSession(parent context.Context, client *client, state *state, spec agent
 	if _, err := rand.Read(nonce[:]); err != nil {
 		return nil, err
 	}
+	generation := hex.EncodeToString(nonce[:])
+	commandOutput, err := newCommandOutputTranslator(state, generation)
+	if err != nil {
+		return nil, err
+	}
 	approvalCtx, approvalCancel := context.WithCancel(client.ctx)
-	result := &session{parent: parent, client: client, state: state, spec: spec, events: make(chan agent.Event, 256), done: make(chan struct{}), reaped: reaped, generation: hex.EncodeToString(nonce[:]), open: make(chan struct{}, 8), approvalCtx: approvalCtx, approvalCancel: approvalCancel}
+	result := &session{parent: parent, client: client, state: state, spec: spec, events: make(chan agent.Event, 256), done: make(chan struct{}), reaped: reaped, generation: generation, commandOutput: commandOutput, open: make(chan struct{}, 8), approvalCtx: approvalCtx, approvalCancel: approvalCancel}
 	go result.run()
 	return result, nil
 }
