@@ -61,6 +61,20 @@ const (
 func withFixes(d Deps, shared []Check) []Check {
 	out := append([]Check(nil), hostSteps(d)...)
 	out = append(out, userSteps(d)...)
+	// Docker-selected setup must not inspect or offer Apple runtime steps.
+	if m, err := readConfigMap(d.ConfigPath); err == nil {
+		if r, ok := m["runtime"].(map[string]any); ok && r["backend"] == "docker" {
+			filtered := out[:0]
+			for _, c := range out {
+				switch c.Name {
+				case "brew-pin", "container-start", "container-kernel", "standard-user-check":
+					continue
+				}
+				filtered = append(filtered, c)
+			}
+			out = filtered
+		}
+	}
 	return append(out, shared...)
 }
 
@@ -1150,6 +1164,7 @@ func userSteps(d Deps) []Check {
 	envPath := filepath.Join(dir, "agent.env")
 	caPath := filepath.Join(dir, "ssh-ca")
 	return ordered([]Check{
+		{Name: "runtime", Phase: PhaseUser, Step: 4, Title: "the existing Docker-compatible socket (manual step 6)", Run: d.runtimeCheck},
 		{
 			Name: "container-start", Phase: PhaseUser, Step: 4, Provides: serviceContainerSystem, Title: "the container system running (manual step 6)",
 			Run: func(ctx context.Context) (Status, string) {
@@ -1422,7 +1437,7 @@ func userSteps(d Deps) []Check {
 // set, because `container system kernel set` needs the running system). A step
 // that needs a service says so with Needs, and a test holds the order to it.
 var userOrder = []string{
-	"config-dir", "api-token", "agent-key", "ssh-ca", "container-start", "container-kernel", "standard-user-check",
+	"config-dir", "api-token", "agent-key", "ssh-ca", "runtime", "container-start", "container-kernel", "standard-user-check",
 	"config-base", "public-url", "github-app", "config-github", "tool-store", "service-install", "drop-admin",
 }
 

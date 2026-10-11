@@ -173,6 +173,40 @@ func (t Terminal) output(ctx context.Context, argv ...string) ([]byte, error) {
 	return out.Bytes(), err
 }
 
+// DockerContextEndpoint captures only read-only context endpoint metadata. Neither
+// stdout, stderr, the context name nor the executable path reaches the run log,
+// probe cache or returned errors: metadata may contain credentials.
+func (t Terminal) DockerContextEndpoint(ctx context.Context, binary, name string) ([]byte, error) {
+	argv := []string{"context", "inspect", "--format", "{{json .Endpoints.docker.Host}}"}
+	if name != "" {
+		argv = append(argv, name)
+	}
+	cmd := exec.CommandContext(ctx, binary, argv...) //nolint:gosec // trusted Docker executable; fixed read-only metadata command
+	out := &contextOutput{}
+	cmd.Stdout, cmd.Stderr = out, io.Discard
+	cmd.WaitDelay = runWaitDelay
+	err := t.interruptOr(ctx, cmd.Run())
+	if err != nil || len(out.data) > 4096 {
+		return nil, errors.New("docker context metadata unavailable")
+	}
+	return out.data, nil
+}
+
+// contextOutput drains the subprocess while retaining at most the response cap
+// plus one byte. Context cancellation and WaitDelay bound execution and draining.
+type contextOutput struct{ data []byte }
+
+func (o *contextOutput) Write(p []byte) (int, error) {
+	n := len(p)
+	if remaining := 4097 - len(o.data); remaining > 0 {
+		if len(p) > remaining {
+			p = p[:remaining]
+		}
+		o.data = append(o.data, p...)
+	}
+	return n, nil
+}
+
 // runWaitDelay is how long Run waits for the output pipes after the command
 // exited or the context ended.
 const runWaitDelay = 2 * time.Second

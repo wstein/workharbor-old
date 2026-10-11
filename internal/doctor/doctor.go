@@ -145,7 +145,11 @@ type Deps struct {
 	// Download fetches a small file over HTTPS for the Homebrew step; nil uses
 	// net/http. Tests pass a fake.
 	Download func(ctx context.Context, url string) ([]byte, error)
-	Yes      bool // `whr setup --yes`: take the default of a choice, never a destructive option
+	// Getenv and RuntimeSockets isolate endpoint discovery in source tests.
+	// A nil RuntimeSockets uses known host paths; an empty slice probes none.
+	Getenv         func(string) string
+	RuntimeSockets []string
+	Yes            bool // `whr setup --yes`: take the default of a choice, never a destructive option
 }
 
 // VendorTerms is where the manual explains a subscription login (D40).
@@ -298,13 +302,7 @@ func Checks(d Deps) []Check {
 			}
 			return NotVerified, "subscription: sign in inside each environment (D40); whr never sees the credential. Read " + VendorTerms + " first"
 		})},
-		{"runtime", 4, func(context.Context) (Status, string) {
-			p, err := d.LookPath("container")
-			if err != nil {
-				return Fail, "the container CLI is not on the PATH"
-			}
-			return OK, p + " found; whether its service is running is not checked"
-		}},
+
 		{"mounts", 4, func(context.Context) (Status, string) {
 			if err := runtime.CheckMount(d.FS, d.Home, d.Home); err == nil {
 				return Fail, "the host-side mount check accepts the home directory"

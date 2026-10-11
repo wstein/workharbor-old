@@ -149,7 +149,7 @@ func TestAHealthyHostPassesAndStillSaysWhatIsNotVerified(t *testing.T) {
 		t.Fatalf("failed: %+v", rs)
 	}
 	got := statuses(rs)
-	for _, name := range []string{"config", "server", "forge-key", "forge-app", "forge-board", "agent-login", "runtime", "mounts"} {
+	for _, name := range []string{"config", "server", "forge-key", "forge-app", "forge-board", "agent-login", "mounts"} {
 		if got[name] != OK {
 			t.Errorf("%s = %s, want ok", name, got[name])
 		}
@@ -216,7 +216,7 @@ func TestFailuresOfTheHost(t *testing.T) {
 	d.LookPath = func(string) (string, error) { return "", errors.New("not found") }
 	d.Probe = func(context.Context) error { return errors.New("401 token\nrejected") }
 	st := statuses(run(d))
-	if st["runtime"] != Fail || st["server"] != Fail {
+	if st["server"] != Fail {
 		t.Fatalf("%+v", st)
 	}
 }

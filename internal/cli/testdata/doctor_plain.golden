@@ -135,6 +135,8 @@ run as operator
     whr setup --only ssh-ca --prefix '<tmp>/whr' --user 'operator'
 
 run as operator
+ ? unverified  runtime              this check describes the account operator
+               runs as: check it as operator
  ? unverified  container-start      this check describes the account operator
                runs as: check it as operator
  ? unverified  container-kernel     this check describes the account operator
@@ -266,8 +268,6 @@ run as operator
     whr setup --prefix '<tmp>/whr' --user 'operator'
 
 run as operator
- + ok     runtime              /opt/homebrew/bin/container found; whether its
-          service is running is not checked
  + ok     mounts               the host-side mount check refuses the home
           directory; the runtime's own refusal is not measured here
  ? unverified  egress               default-deny egress needs a live
@@ -292,7 +292,7 @@ run as operator
 
 run as operator
 ------------------------------------------------------------
-Summary: 3 ok, 14 FAIL, 34 not verified (?), 0 WARN, 0 skipped
+Summary: 2 ok, 14 FAIL, 35 not verified (?), 0 WARN, 0 skipped
 
 What you need to do now
   1. workharbor-user: dscl did not say whether operator exists

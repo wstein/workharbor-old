@@ -30,6 +30,15 @@ func (s scripted) Output(_ context.Context, argv ...string) ([]byte, error) {
 	return nil, errors.New("exit status 1")
 }
 
+// DockerContextEndpoint is a fake safe capture seam; no subprocess or log exists.
+func (s scripted) DockerContextEndpoint(ctx context.Context, bin, name string) ([]byte, error) {
+	argv := []string{bin, "context", "inspect", "--format", "{{json .Endpoints.docker.Host}}"}
+	if name != "" {
+		argv = append(argv, name)
+	}
+	return s.Output(ctx, argv...)
+}
+
 // answers is a Prompter that gives the next prepared answer.
 type answers struct {
 	lines, secrets []string
@@ -66,7 +75,7 @@ func steps(t *testing.T, d Deps) map[string]Check {
 }
 
 func hostDeps(r Runner) Deps {
-	return Deps{ConfigPath: "/Users/workharbor/.config/whr/config.json", Home: "/Users/workharbor", GOOS: "darwin", Runner: r, User: "werner", UID: 501, Prefix: "/nonexistent/opt/whr"}
+	return Deps{Getenv: func(string) string { return "" }, RuntimeSockets: []string{}, ConfigPath: "/Users/workharbor/.config/whr/config.json", Home: "/Users/workharbor", GOOS: "darwin", Runner: r, User: "werner", UID: 501, Prefix: "/nonexistent/opt/whr"}
 }
 
 func status(c Check) (Status, string) { return c.Run(context.Background()) }
@@ -456,7 +465,7 @@ func TestStepNamesAreKebabCaseInTheWizardsOrderWithoutACycle(t *testing.T) {
 	for _, c := range Steps(all, PhaseUser) {
 		user = append(user, c.Name)
 	}
-	want := "config-dir api-token agent-key ssh-ca container-start container-kernel standard-user-check config-base public-url github-app config-github tool-store service-install drop-admin"
+	want := "config-dir api-token agent-key ssh-ca runtime container-start container-kernel standard-user-check config-base public-url github-app config-github tool-store service-install drop-admin"
 	if strings.Join(user, " ") != want {
 		t.Errorf("user steps %v\nwant %s", user, want)
 	}
@@ -791,6 +800,14 @@ type recording struct {
 func (r *recording) Output(ctx context.Context, argv ...string) ([]byte, error) {
 	r.calls = append(r.calls, strings.Join(argv, " "))
 	return r.scripted.Output(ctx, argv...)
+}
+
+func (r *recording) DockerContextEndpoint(ctx context.Context, bin, name string) ([]byte, error) {
+	argv := []string{bin, "context", "inspect", "--format", "{{json .Endpoints.docker.Host}}"}
+	if name != "" {
+		argv = append(argv, name)
+	}
+	return r.Output(ctx, argv...)
 }
 
 // Outside the Aqua session (SSH) the container checks are not_verified and run

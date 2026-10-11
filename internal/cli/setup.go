@@ -38,6 +38,8 @@ type SetupEnv struct {
 	// LookPath finds a program on the PATH; nil is the real PATH. A test
 	// replaces it so a report does not depend on what the machine has installed.
 	LookPath func(string) (string, error)
+	// RuntimeSockets overrides known host sockets in tests; empty probes none.
+	RuntimeSockets []string
 	// Identity is the build identity answer files are bound to; nil is
 	// answers.Identity. OpenLog opens the setup protocol of the account whose
 	// home directory is given; nil is protocol.Open. A test replaces both.
@@ -125,7 +127,7 @@ func newSetup(st *state) *cobra.Command {
 			home := st.env.Getenv("HOME")
 			exe, _ := env.Executable()
 			return doctor.Checks(doctor.Deps{
-				ConfigPath: path, Home: home, FS: rt.OSFS{}, LookPath: env.LookPath,
+				ConfigPath: path, Home: home, FS: rt.OSFS{}, LookPath: env.LookPath, Getenv: st.env.Getenv, RuntimeSockets: env.RuntimeSockets,
 				Runner: env.Host, Yes: yes, GOOS: env.GOOS, User: env.User, Account: whrUser, UID: env.UID, Whr: exe, Prefix: prefix,
 			})
 		}

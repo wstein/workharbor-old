@@ -95,9 +95,9 @@ func newSetupRig(t *testing.T) *setupRig {
 	r := &setupRig{t: t, host: &setupHost{outputs: map[string]string{}}, exe: exe}
 	r.home = filepath.Join(dir, "home")
 	r.env = SetupEnv{
-		NoRunLog: true,
-		OpenLog:  func(string) (*protocol.Log, error) { return protocol.Open(r.home, nil, nil) },
-		Host:     r.host, User: "werner", UID: 501, GOOS: "darwin", IsTerminal: func() bool { return true },
+		NoRunLog: true, RuntimeSockets: []string{},
+		OpenLog: func(string) (*protocol.Log, error) { return protocol.Open(r.home, nil, nil) },
+		Host:    r.host, User: "werner", UID: 501, GOOS: "darwin", IsTerminal: func() bool { return true },
 		// the same answer on every machine: a golden must not depend on what is installed
 		LookPath:   func(string) (string, error) { return "/opt/homebrew/bin/container", nil },
 		Executable: func() (string, error) { return exe, nil },

@@ -67,6 +67,7 @@ func newDoctor(st *state) *cobra.Command {
 				Home:       st.env.Getenv("HOME"),
 				FS:         runtime.OSFS{},
 				LookPath:   env.LookPath,
+				Getenv:     st.env.Getenv, RuntimeSockets: env.RuntimeSockets,
 				// Output only: the checks read the machine and nothing writes.
 				Runner: env.Host, GOOS: env.GOOS, User: env.User, Account: whrUser, UID: env.UID, Whr: exe, Prefix: prefix,
 				Probe: func(ctx context.Context) error {
