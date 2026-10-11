@@ -1,5 +1,5 @@
 // Package serve runs the supervisor: the service, its reconciler and the JSON
-// API on a loopback address (design §5.3, §9.7). It is wiring: everything it
+// API on a private unix socket (design §5.3, §9.7). It is wiring: everything it
 // does is in the packages it joins, so a test can run it on the fakes.
 package serve
 
@@ -155,6 +155,10 @@ func NewID() domain.ID {
 // again every ReconcileEvery. On the way out it stops the sessions and leaves
 // their runs resumable.
 func Run(ctx context.Context, d Deps) error {
+	remoteWeb, err := remoteWebReady(ctx, d)
+	if err != nil {
+		return err
+	}
 	logf := d.Logf
 	if logf == nil {
 		logf = func(string, ...any) {}
@@ -231,6 +235,9 @@ func Run(ctx context.Context, d Deps) error {
 	if origin, host := d.Config.PublicOrigin(); origin != "" {
 		auth.SetPublicHost(host) // a request by the forwarder's name is https
 	}
+	if remoteWeb {
+		auth.RequireSecureCookies()
+	}
 	// Passkeys (D45) are bound to whr's HTTPS name, so they need public_url.
 	var keys *passkey.Service
 	if origin, host := d.Config.PublicOrigin(); origin != "" {
@@ -241,6 +248,9 @@ func Run(ctx context.Context, d Deps) error {
 			OnFirstEnrolled: func() { auth.EndSessions(func(id string) bool { return id == "" }) },
 			OnRevoked:       func(id string) { auth.EndSessions(func(p string) bool { return p == id }) },
 		}, d.Store); err != nil {
+			if remoteWeb {
+				return fmt.Errorf("remote web passkeys: %w; restart on loopback to enrol or recover", err)
+			}
 			return err
 		}
 	} else {
@@ -287,7 +297,7 @@ func Run(ctx context.Context, d Deps) error {
 	}()
 	defer func() { stopSess(); <-sessDone }()
 	apiOpt := api.Options{Token: token, Clients: clients, Store: d.Store, OnError: func(err error) { logf("api error: %v", err) }}
-	webOpt := web.Options{Auth: auth, Store: d.Store, Setup: d.Setup, OnError: func(err error) { logf("web error: %v", err) }}
+	webOpt := web.Options{RequirePasskey: remoteWeb, Auth: auth, Store: d.Store, Setup: d.Setup, OnError: func(err error) { logf("web error: %v", err) }}
 	webOpt.SetupOrigin, _ = d.Config.PublicOrigin()
 	if previews != nil {
 		apiOpt.Previews, webOpt.Previews = previews, previews
@@ -301,7 +311,7 @@ func Run(ctx context.Context, d Deps) error {
 		return err
 	}
 	// Bind before the first reconcile: a wrong address is the quickest failure. The
-	// API gets a private unix socket, the web UI the forwarded loopback address.
+	// API gets a private unix socket, the web UI its configured TCP address.
 	if d.SocketPath == "" {
 		return errors.New("serve: no socket path for the API")
 	}
@@ -309,7 +319,7 @@ func Run(ctx context.Context, d Deps) error {
 	if err != nil {
 		return err
 	}
-	ln, err := api.Listen(d.Config.Listen)
+	ln, err := web.Listen(d.Config.Listen)
 	if err != nil {
 		_ = apiLn.Close()
 		return err
@@ -538,6 +548,30 @@ func withHeld(c *config.Config, held map[string]store.WorkflowRecord) *config.Co
 		}
 	}
 	return &cp
+}
+
+// remoteWebReady checks remote authentication before any listener is opened.
+// This comes from trusted configuration, never a request Host or proxy header.
+func remoteWebReady(ctx context.Context, d Deps) (bool, error) {
+	ip, err := config.WebListenIP(d.Config.Listen)
+	if err != nil {
+		return false, err
+	}
+	if ip.IsLoopback() {
+		return false, nil
+	}
+	const recovery = "; restart with a loopback listen address and use the host CLI to enrol or recover a passkey"
+	if origin, _ := d.Config.PublicOrigin(); origin == "" {
+		return false, errors.New("remote web passkey sign-in requires an HTTPS public_url (or board.public_url)" + recovery)
+	}
+	enrolled, err := d.Store.Passkeys(ctx)
+	if err != nil {
+		return false, fmt.Errorf("remote web passkey readiness: %w%s", err, recovery)
+	}
+	if len(enrolled) == 0 {
+		return false, errors.New("remote web sign-in requires an enrolled passkey" + recovery)
+	}
+	return true, nil
 }
 
 // webCanConfirm says whether the web UI could confirm a change: passkeys are on

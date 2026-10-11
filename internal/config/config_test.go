@@ -123,7 +123,7 @@ func TestEveryProblemIsReportedWithItsKey(t *testing.T) {
 	_, err := r.parse(t)
 	got := problems(err)
 	for _, want := range []string{
-		"listen: \"0.0.0.0\" is not a loopback address",
+		"listen: \"0.0.0.0\" is not an explicit unicast IP address",
 		"repositories[0].name: \"no-slash\"",
 		"repositories[2].name: \"wstein/workharbor\" is the same repository as repositories[1]",
 		"repositories[3].clone_depth: -1",
@@ -138,10 +138,13 @@ func TestEveryProblemIsReportedWithItsKey(t *testing.T) {
 	}
 }
 
-func TestOnlyLoopbackListens(t *testing.T) {
+func TestWebListenAddresses(t *testing.T) {
 	for addr, ok := range map[string]bool{
 		"127.0.0.1:8787": true, "[::1]:8787": true, "127.0.0.2:80": true,
-		"0.0.0.0:8787": false, "192.168.1.5:8787": false, "localhost:8787": false, "[::]:8787": false,
+		"192.168.1.5:8787": true, "10.44.0.1:8787": true, "[fd42::1]:8787": true,
+		"0.0.0.0:8787": false, "[::]:8787": false, "[::ffff:0.0.0.0]:8787": false,
+		"localhost:8787": false, "224.0.0.1:8787": false, "255.255.255.255:8787": false,
+		"169.254.1.1:8787": false, "[fe80::1]:8787": false, "[fe80::1%en0]:8787": false,
 		"8787": false, "": false, "127.0.0.1:0": false, "127.0.0.1:70000": false, "127.0.0.1:x": false,
 	} {
 		r := newRig(t)

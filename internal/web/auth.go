@@ -128,7 +128,8 @@ type TokenAuth struct {
 	gen uint64
 	// httpsHost is the host name of the HTTPS forwarder (public_url): a request to
 	// it is HTTPS; X-Forwarded-Proto is never believed.
-	httpsHost string
+	httpsHost     string
+	secureCookies bool
 	// onEnd hears every session that ends, whatever ended it.
 	onEnd func(sessionID string)
 }
@@ -328,14 +329,18 @@ func (a *TokenAuth) SetPublicHost(host string) {
 	a.mu.Unlock()
 }
 
-// isHTTPS reports whether the browser reached the UI over HTTPS.
+// isHTTPS selects secure session cookies: always for a remote listener,
+// otherwise for TLS or the configured HTTPS forwarder host.
 func (a *TokenAuth) isHTTPS(r *http.Request) bool {
 	if r.TLS != nil {
 		return true
 	}
 	a.mu.Lock()
-	host := a.httpsHost
+	host, secure := a.httpsHost, a.secureCookies
 	a.mu.Unlock()
+	if secure {
+		return true
+	}
 	if host == "" {
 		return false
 	}
@@ -506,4 +511,11 @@ func deviceOf(ua string) (label string, phone bool) {
 		browser = "Safari"
 	}
 	return kind + ", " + browser, phone
+}
+
+// RequireSecureCookies makes every session cookie Secure for a remote listener.
+func (a *TokenAuth) RequireSecureCookies() {
+	a.mu.Lock()
+	a.secureCookies = true
+	a.mu.Unlock()
 }

@@ -204,7 +204,8 @@ type Config struct {
 	// it, and its value never affects loading or validation.
 	Schema   string          `json:"$schema,omitempty"`
 	SkillSet skillset.Config `json:"skill_set,omitzero"`
-	// Listen is the address `whr serve` binds: a loopback address (D29).
+	// Listen is the web UI address: loopback by default, or one explicit VPN
+	// interface IP. The JSON API stays on its private unix socket (D29).
 	Listen string `json:"listen"`
 	// PublicURL is whr's HTTPS name behind the forwarder (D29), for example
 	// https://whr.tailnet.example. Passkeys (D45) are bound to its host name, so
@@ -819,21 +820,34 @@ func within(path, dir string) bool {
 	}
 }
 
-// checkListen accepts host:port where the host is a loopback address: the API
-// listens on loopback (D29), and a name is not resolved, so what is bound is
-// what is written.
+// checkListen checks the web UI address and a nonzero TCP port.
 func checkListen(addr string) string {
-	host, port, err := net.SplitHostPort(addr)
+	_, port, err := net.SplitHostPort(addr)
 	if err != nil {
 		return fmt.Sprintf("%q is not host:port", addr)
 	}
 	if n, err := strconv.Atoi(port); err != nil || n < 1 || n > 65535 {
 		return fmt.Sprintf("port %q is not a port", port)
 	}
-	if ip := net.ParseIP(host); ip == nil || !ip.IsLoopback() {
-		return fmt.Sprintf("%q is not a loopback address: a guest reaches every other address of the host (D29), so the API listens on 127.0.0.1 or ::1", host)
+	if _, err := WebListenIP(addr); err != nil {
+		return err.Error()
 	}
 	return ""
+}
+
+// WebListenIP returns the explicit unicast IP of the web listener. Names and
+// unspecified addresses are refused so binding never expands to all interfaces.
+// The operator chooses the VPN interface; an IP alone cannot prove VPN isolation.
+func WebListenIP(addr string) (net.IP, error) {
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		return nil, fmt.Errorf("%q is not host:port", addr)
+	}
+	ip := net.ParseIP(host)
+	if ip == nil || !ip.IsLoopback() && !ip.IsGlobalUnicast() {
+		return nil, fmt.Errorf("%q is not an explicit unicast IP address (names, unspecified and multicast addresses are refused)", host)
+	}
+	return ip, nil
 }
 
 // CheckStateDir refuses a state directory that another user could enter or

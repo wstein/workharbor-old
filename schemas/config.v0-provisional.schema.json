@@ -21,7 +21,7 @@
         "package": { "$ref": "#/$defs/skillPin" }
       }
     },
-    "listen": { "type": "string", "description": "Loopback address of the web UI, for example 127.0.0.1:8787." },
+    "listen": { "type": "string", "description": "Web UI IP and port: loopback by default (127.0.0.1:8787), or one literal unicast VPN interface IP. Wildcard addresses and host names are refused. The JSON API stays on its private unix socket." },
     "public_url": { "type": "string", "pattern": "^[hH][tT][tT][pP][sS]://" },
     "repositories": {
       "type": "array",

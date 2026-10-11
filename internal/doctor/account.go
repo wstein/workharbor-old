@@ -92,9 +92,13 @@ func (d Deps) accountConfig() (accountView, error) {
 	str := func(m map[string]any, k string) string { s, _ := m[k].(string); return s }
 	sub := func(k string) map[string]any { v, _ := m[k].(map[string]any); return v }
 	// remote access (D49): a forwarder's public URL (the web UI over the VPN,
-	// D29) or the console's SSH authority (`whr ssh`); the tailscale step cannot
+	// D29), a direct non-loopback web listener, or the console's SSH authority
+	// (`whr ssh`); the tailscale step cannot
 	// be read and does not count
 	remote := str(m, "public_url") != "" || str(sub("board"), "public_url") != "" || str(sub("console"), "ssh_ca_key_file") != ""
+	if ip, err := config.WebListenIP(str(m, "listen")); err == nil && !ip.IsLoopback() {
+		remote = true
+	}
 	// only an absent key or exactly "dedicated" is dedicated; any other value
 	// (a typo, another case, a wrong type) is read as shared, the safe side
 	acct, present := m["account"]
@@ -173,7 +177,7 @@ func (d Deps) accountCheck() func(context.Context) (Status, string) {
 		gave := " It gives up that " + strings.Join(gives, " and that ") + "."
 		on, unknownRemote := d.hostRemote(ctx)
 		if c.remote || len(on) > 0 {
-			via := "whr is configured to be reached from other devices (public_url or the console's SSH)"
+			via := "whr is configured to be reached from other devices (public_url, a non-loopback web listener or the console's SSH)"
 			if len(on) > 0 {
 				via = "the Mac's " + strings.Join(on, " and ") + " is on"
 				if c.remote {
