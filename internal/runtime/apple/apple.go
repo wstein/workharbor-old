@@ -284,6 +284,9 @@ func (a *Adapter) Provision(ctx context.Context, prep runtime.PreparedSpec) (str
 	if !prep.Prepared() {
 		return "", runtime.ErrNotPrepared
 	}
+	if _, has := prep.DockerQuotaObservation(); has {
+		return "", fmt.Errorf("%w: Docker-only registered quota observation", runtime.ErrUnsupported)
+	}
 	if _, has := prep.DockerOutboundNetwork(); has {
 		return "", fmt.Errorf("%w: Docker outbound network policy", runtime.ErrUnsupported)
 	}

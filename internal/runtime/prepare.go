@@ -12,6 +12,8 @@ import (
 
 // PrepareOptions are what the one checked step needs from the host.
 type PrepareOptions struct {
+	// DockerQuota requests read-only registered evidence, never quota admission.
+	DockerQuota *QuotaPreparation
 	// DockerOutbound is a trusted Docker-only D62 choice, never repository input.
 	DockerOutbound *DockerOutbound
 	// PrivateExecVolume requests trusted bounded auxiliary memory storage.
@@ -33,6 +35,7 @@ type PrepareOptions struct {
 // the only way to get a non-zero one is Prepare, and Provision refuses any
 // other (ErrNotPrepared): nothing unchecked can reach the runtime.
 type PreparedSpec struct {
+	dockerQuota    *QuotaObservation
 	privateExec    *PrivateExecPlan
 	dockerOutbound *Network
 	spec           Spec
@@ -193,7 +196,11 @@ func Prepare(opts PrepareOptions, spec Spec) (PreparedSpec, error) {
 	if err != nil {
 		return PreparedSpec{}, err
 	}
-	return PreparedSpec{spec: out, privateExec: plan, dockerOutbound: outbound, ok: true}, nil
+	quota, err := prepareQuota(opts, out, plan)
+	if err != nil {
+		return PreparedSpec{}, err
+	}
+	return PreparedSpec{spec: out, privateExec: plan, dockerOutbound: outbound, dockerQuota: quota, ok: true}, nil
 }
 
 // minDenyBits is the widest prefix the proxy is told to refuse: a /0 would

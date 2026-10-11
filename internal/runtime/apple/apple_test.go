@@ -515,3 +515,23 @@ func TestProvisionRejectsDockerOutboundPlanBeforeCLI(t *testing.T) {
 		t.Fatal("Apple applied Docker's outbound exception")
 	}
 }
+
+func TestProvisionRejectsDockerQuotaObservationBeforeCLI(t *testing.T) {
+	r := &recorder{}
+	a := &Adapter{owner: "o1", run: r.run}
+	s := baseSpec()
+	s.Mounts = []runtime.Mount{{Kind: runtime.MountVolume, Source: "wh-home", Target: "/home/agent"}}
+	quota := &runtime.QuotaPreparation{Allocation: "registered-1", DaemonID: "daemon-1", HostID: "host-1", Resolve: runtime.QuotaResolverFunc(func(_ context.Context, q runtime.QuotaRequest) (runtime.QuotaProof, error) {
+		return runtime.QuotaProof{Version: 1, Allocation: q.Allocation, DaemonID: q.DaemonID, HostID: q.HostID, Environment: q.Environment, Mode: "full-qgroup", Enabled: true, Consistent: true, Dedicated: true, FSUUID: "11111111-1111-1111-1111-111111111111", ParentQgroup: "1/100", MaxReferencedBytes: q.RequestedBytes, Resources: []runtime.QuotaResourceProof{{Mount: q.Mounts[0], FSUUID: "11111111-1111-1111-1111-111111111111", SubvolumeID: 256, CoveringQgroup: "1/100", HostPath: "/operator/home", HostDevice: 1, HostInode: 100, VolumeDriver: "local", VolumeMountpoint: "/operator/home"}}}, nil
+	})}
+	p, err := runtime.Prepare(runtime.PrepareOptions{FS: runtime.OSFS{}, Home: testHome(t), Owns: func(string) bool { return true }, DockerQuota: quota}, s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.Provision(context.Background(), p); !errors.Is(err, runtime.ErrUnsupported) {
+		t.Fatalf("Docker-only observation accepted: %v", err)
+	}
+	if len(r.calls) != 0 {
+		t.Fatal("Docker-only observation reached Apple CLI")
+	}
+}

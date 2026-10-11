@@ -164,3 +164,31 @@ func TestStorageEvidenceRefusesSocketAncestorMountBeforeRead(t *testing.T) {
 		t.Fatalf("socket ancestor accepted: %v", err)
 	}
 }
+
+func TestQuotaObservationCannotAdmitBeforeEngineCreation(t *testing.T) {
+	calls := 0
+	endpoint := socketServer(t, http.HandlerFunc(func(http.ResponseWriter, *http.Request) { calls++ }))
+	a, err := New("mine", endpoint, "/tools/whr-shim")
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := storagePrepared(t).Spec()
+	s.Mounts = []runtime.Mount{{Kind: runtime.MountVolume, Source: "mine-home", Target: "/home/agent"}}
+	quota := &runtime.QuotaPreparation{Allocation: "registered-1", DaemonID: "daemon-1", HostID: "host-1", Resolve: runtime.QuotaResolverFunc(func(_ context.Context, q runtime.QuotaRequest) (runtime.QuotaProof, error) {
+		return runtime.QuotaProof{Version: 1, Allocation: q.Allocation, DaemonID: q.DaemonID, HostID: q.HostID, Environment: q.Environment, Mode: "full-qgroup", Enabled: true, Consistent: true, Dedicated: true, FSUUID: "11111111-1111-1111-1111-111111111111", ParentQgroup: "1/100", MaxReferencedBytes: q.RequestedBytes, Resources: []runtime.QuotaResourceProof{{Mount: q.Mounts[0], FSUUID: "11111111-1111-1111-1111-111111111111", SubvolumeID: 256, CoveringQgroup: "1/100", HostPath: "/operator/home", HostDevice: 1, HostInode: 100, VolumeDriver: "local", VolumeMountpoint: "/operator/home"}}}, nil
+	})}
+	p, err := runtime.Prepare(runtime.PrepareOptions{FS: runtime.OSFS{}, Home: t.TempDir(), Owns: func(string) bool { return true }, DockerQuota: quota}, s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	obs, ok := p.DockerQuotaObservation()
+	if !ok || obs.AdmissionSupported() {
+		t.Fatal("healthy snapshot claimed admission")
+	}
+	if _, err := a.Provision(context.Background(), p); !errors.Is(err, runtime.ErrUnsupported) {
+		t.Fatal("positive quota admitted", err)
+	}
+	if calls != 0 {
+		t.Fatalf("incomplete enforcement made %d Engine calls", calls)
+	}
+}
