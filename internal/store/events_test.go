@@ -298,3 +298,32 @@ func TestATransactionThatFailsWritesNoEvents(t *testing.T) {
 		t.Errorf("a rolled-back transaction left %d events", len(got))
 	}
 }
+
+func TestLatestEventSeqIsTaskScopedAndEmptyIsZero(t *testing.T) {
+	s := openTemp(t)
+	seq, err := s.LatestEventSeq(bg, "t1")
+	if err != nil || seq != 0 {
+		t.Fatalf("empty watermark = %d, %v", seq, err)
+	}
+	saved, err := s.Append(bg, audit("t1", domain.EventRunState), audit("t2", domain.EventRunState))
+	if err != nil {
+		t.Fatal(err)
+	}
+	seq, err = s.LatestEventSeq(bg, "t1")
+	if err != nil || seq != saved[0].Seq {
+		t.Fatalf("task watermark = %d, %v", seq, err)
+	}
+	more, err := s.Append(bg, audit("t1", domain.EventTaskState))
+	if err != nil {
+		t.Fatal(err)
+	}
+	seq, err = s.LatestEventSeq(bg, "t1")
+	if err != nil || seq != more[0].Seq {
+		t.Fatalf("advanced watermark = %d, %v", seq, err)
+	}
+	cancelled, cancel := context.WithCancel(bg)
+	cancel()
+	if _, err := s.LatestEventSeq(cancelled, "t1"); err == nil {
+		t.Fatal("cancelled watermark read succeeded")
+	}
+}

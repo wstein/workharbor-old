@@ -256,3 +256,13 @@ func (s *Store) EventsOfKind(ctx context.Context, task domain.ID, kind domain.Ev
 	}
 	return out, rows.Err()
 }
+
+// LatestEventSeq returns the latest durable sequence for one task, or zero.
+// It lets live observers distinguish history from events after attachment.
+func (s *Store) LatestEventSeq(ctx context.Context, task domain.ID) (int64, error) {
+	var seq int64
+	if err := s.db.QueryRowContext(ctx, `SELECT COALESCE(MAX(seq), 0) FROM events WHERE task_id = ?`, string(task)).Scan(&seq); err != nil {
+		return 0, fmt.Errorf("store: latest event sequence: %w", err)
+	}
+	return seq, nil
+}

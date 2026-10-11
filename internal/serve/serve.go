@@ -157,6 +157,9 @@ func NewID() domain.ID {
 // again every ReconcileEvery. On the way out it stops the sessions and leaves
 // their runs resumable.
 func Run(ctx context.Context, d Deps) error {
+	if _, _, err := d.Config.ToolWatchdog.Thresholds(); err != nil {
+		return fmt.Errorf("tool_watchdog: %w", err)
+	}
 	logf := d.Logf
 	if logf == nil {
 		logf = func(string, ...any) {}
@@ -172,6 +175,10 @@ func Run(ctx context.Context, d Deps) error {
 	scfg := serviceConfig(d, logf)
 	svc := service.New(d.Store, d.Runtime, d.Agent, d.Clock, scfg)
 	defer svc.Shutdown()
+	watchdogCtx, stopWatchdogs := context.WithCancel(ctx)
+	watchdogDone := make(chan struct{})
+	go func() { defer close(watchdogDone); svc.RunToolWatchdogs(watchdogCtx) }()
+	defer func() { stopWatchdogs(); <-watchdogDone }()
 	held, err := applyWorkflows(ctx, d, logf)
 	if err != nil {
 		return err
@@ -387,6 +394,7 @@ func Run(ctx context.Context, d Deps) error {
 // serviceConfig is the service's configuration for d: the budgets and limits,
 // then the board, the throttled notifier and the revoker.
 func serviceConfig(d Deps, logf func(string, ...any)) service.Config {
+	warn, abort, _ := d.Config.ToolWatchdog.Thresholds() // Run validates before composition.
 	scfg := service.Config{
 		ProjectInstructions: d.ProjectInstructions,
 		SkillBinding:        d.SkillBinding,
@@ -396,6 +404,7 @@ func serviceConfig(d Deps, logf func(string, ...any)) service.Config {
 		Owner:               d.Owner,
 		PostCreateTimeout:   d.Config.Environment.PostCreate(),
 		Budgets:             Budgets(d.Config.Budgets),
+		ToolWatchdog:        service.ToolWatchdogLimits{WarnAfter: warn, AbortAfter: abort},
 		LowLimits:           service.LowLimits{WindowPercent: d.Config.Limits.WarnPercent, BalanceMicroUSD: int64(math.Round(d.Config.Limits.LowBalanceUSD * 1e6))},
 		Spec:                d.AgentSpec,
 		NewID:               NewID,

@@ -71,6 +71,7 @@ func (b *bus) publish(events ...domain.Event) {
 // publish hands saved events to subscribers and keeps the board in step. The
 // caller has committed them.
 func (s *Service) publish(events []domain.Event) {
+	s.disarmChangedToolWatchdogs(events)
 	s.bus.publish(events...)
 	s.mirror(events)
 }

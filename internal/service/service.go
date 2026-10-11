@@ -99,6 +99,9 @@ type Config struct {
 	// Budgets are the per-run and per-task limits on tokens and cost (§7.4).
 	// The zero value sets none. Optional.
 	Budgets Budgets
+	// ToolWatchdog bounds output silence only for sessions that implement the
+	// optional correlated execution and tool-only cancellation contract.
+	ToolWatchdog ToolWatchdogLimits
 	// LowLimits say when a provider's reported limit is low (issue #172).
 	LowLimits LowLimits
 	// OnError hears errors that happen in the background, such as a session's
@@ -237,6 +240,7 @@ func (s *Service) leaseEnvironment(ws domain.Workspace) (release func(), err err
 // told to stop. Both fields are guarded by Service.mu.
 type slot struct {
 	sess          agent.Session
+	watchdog      *runToolWatchdog
 	stopRequested bool
 	// after and release belong to a stop requested before the session was up
 	// (stopAgent): attach runs after when its stop fails, then releases the
@@ -289,6 +293,7 @@ func (s *Service) Shutdown() {
 	}
 	live := make([]agent.Session, 0, len(s.sessions))
 	for _, sl := range s.sessions {
+		s.disarmToolWatchdog(sl)
 		if sl.sess != nil {
 			live = append(live, sl.sess)
 		}
@@ -401,6 +406,7 @@ func (s *Service) begin(run domain.ID) (*slot, error) {
 // during a pass may have put a new session there.
 func (s *Service) end(run domain.ID, sl *slot) {
 	s.mu.Lock()
+	s.disarmToolWatchdog(sl)
 	if s.sessions[run] == sl {
 		delete(s.sessions, run)
 	}
@@ -424,8 +430,13 @@ func (s *Service) attached(run domain.ID) bool {
 // agent's session ID is recorded, a login or quota end suspends the run, and the
 // result ends, fails or interrupts it. Everything goes through the aggregate.
 func (s *Service) attach(task, run domain.ID, sl *slot, sess agent.Session) {
+	monitor, coverageErr := s.newRunToolWatchdog(task, run, sess)
 	s.mu.Lock()
 	if s.closing {
+		if monitor != nil {
+			monitor.state.disarm()
+			monitor.cancel()
+		}
 		// Shutdown has begun: the session never joins the wait group, so
 		// wg.Add cannot race wg.Wait. It is stopped and stays resumable; the
 		// next start reconciles the run (design §5.3).
@@ -435,9 +446,14 @@ func (s *Service) attach(task, run domain.ID, sl *slot, sess agent.Session) {
 		return
 	}
 	sl.sess = sess
+	sl.watchdog = monitor
 	stopNow, after, release := sl.stopRequested, sl.after, sl.release
+	if stopNow {
+		s.disarmToolWatchdog(sl)
+	}
 	s.wg.Add(1) // under s.mu, so it happens before Shutdown sets closing or not at all
 	s.mu.Unlock()
+	s.report(coverageErr)
 	go func() {
 		defer s.wg.Done()
 		defer s.end(run, sl)
@@ -452,6 +468,7 @@ func (s *Service) attach(task, run domain.ID, sl *slot, sess agent.Session) {
 			}
 		}
 		for e := range sess.Events() {
+			s.observeToolWatchdog(sl, e)
 			switch e.Kind {
 			case agent.EventSession:
 				s.report(s.update(ctx, task, func(a *domain.TaskAggregate) error { return a.RecordSession(run, e.SessionID) }))
@@ -465,6 +482,9 @@ func (s *Service) attach(task, run domain.ID, sl *slot, sess agent.Session) {
 				s.record(ctx, task, e)
 			}
 		}
+		s.mu.Lock()
+		s.disarmToolWatchdog(sl)
+		s.mu.Unlock()
 		res, _ := sess.Wait()
 		s.report(s.finish(ctx, task, run, res))
 	}()
@@ -748,6 +768,7 @@ func (s *Service) stopSessionErr(run domain.ID) error {
 		s.mu.Unlock()
 		return nil
 	}
+	s.disarmToolWatchdog(sl)
 	sess := sl.sess
 	if sess == nil {
 		sl.stopRequested = true

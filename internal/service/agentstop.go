@@ -128,6 +128,7 @@ func (s *Service) stopAgentWhenSaved(ctx context.Context, task, run, env domain.
 		release()
 		return false, nil
 	}
+	s.disarmToolWatchdog(sl)
 	if sl.sess == nil {
 		sl.stopRequested = true
 		// No call waits for what attach finds, so it goes to the task as an event.

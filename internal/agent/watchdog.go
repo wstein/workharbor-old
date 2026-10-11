@@ -47,8 +47,9 @@ const (
 // are unique in that generation and are never reused or reconstructed from replay.
 // AbortTool must cancel only the named tool, returning Confirmed only after
 // observing that cancellation. Stop, turn interruption and client shutdown do
-// not implement this contract. A cancelled context or unconfirmed outcome is
-// Unknown (with an error when appropriate), never an optimistic confirmation.
+// not implement this contract. Context cancellation alone proves no outcome;
+// independently observed tool-only cancellation can still be Confirmed.
+// Unconfirmed outcomes are Unknown, with an error when appropriate.
 type ToolWatchdogSession interface {
 	WatchdogGeneration() string
 	AbortTool(ctx context.Context, toolCallID string) (ToolAbortResult, error)

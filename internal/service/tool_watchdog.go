@@ -198,3 +198,12 @@ func (w *toolWatchdogState) disarm() {
 	w.active = false
 	w.tools = nil
 }
+
+// finished retires only the original execution; its ID remains a replay tombstone.
+func (w *toolWatchdogState) finished(a toolWatchdogAction) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if a.source == w && a.generation == w.generation {
+		delete(w.tools, a.toolID)
+	}
+}
