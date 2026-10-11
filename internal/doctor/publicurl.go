@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"io/fs"
-	"net"
 	"strings"
 
 	"github.com/wstein/workharbor/internal/config"
@@ -16,13 +15,13 @@ import (
 const defaultListen = "127.0.0.1:8787"
 
 // publicURLStep is the step `public-url` (issue #396): whr's public name is in
-// the configuration, well formed, and the listener behind the forwarder is on
-// loopback. It reads only: the configuration and, on a Mac, `socketfilterfw
+// the configuration, well formed, and the web listener names an explicit IP.
+// It reads only: the configuration and, on a Mac, `socketfilterfw
 // --getglobalstate`, which needs no sudo. Whether the forwarder serves the name
 // to the port, and whether a browser reaches it, needs the network and is never
 // claimed. The firewall is named only because it is the usual suspect: the
 // application firewall does not filter a loopback connection, so it cannot be
-// why a request to the listener on this Mac fails.
+// why a request to a loopback listener on this Mac fails.
 func (d Deps) publicURLStep() Check {
 	return Check{
 		Name: "public-url", Phase: PhaseUser, Step: 2, Title: "whr's public name in the configuration (manual step 7)",
@@ -35,12 +34,15 @@ func (d Deps) publicURLStep() Check {
 			if listen == "" {
 				listen = defaultListen
 			}
-			host, _, err := net.SplitHostPort(listen)
-			if ip := net.ParseIP(host); err != nil || ip == nil || !ip.IsLoopback() {
-				return Fail, "listen " + textsafe.Escape(listen) + " is not a loopback address: the forwarder reaches whr on loopback (D29)"
+			ip, err := config.WebListenIP(listen)
+			if err != nil {
+				return Fail, "listen " + textsafe.Escape(listen) + " is not a loopback or explicit unicast address: " + err.Error()
 			}
 			raw, _ := m["public_url"].(string)
 			if raw == "" {
+				if !ip.IsLoopback() {
+					return NotVerified, "no public_url: configured web listener " + listen + "; set the trusted HTTPS name for remote passkeys, or run whr github app create --listen " + defaultListen + " --local to set up the App in a browser on this Mac"
+				}
 				return NotVerified, "no public_url: whr github app create has no link a phone can open. Set it with this step, or open the link on this Mac with the --local flag of the github app create command (http://" + listen + ")"
 			}
 			n, err := config.NormalizePublicURL(raw)
@@ -49,6 +51,9 @@ func (d Deps) publicURLStep() Check {
 					return Fail, "public_url " + textsafe.Escape(raw) + " is not in its normal form; the fix writes " + n
 				}
 				return Fail, "public_url " + textsafe.Escape(raw) + ": " + oneLine(err.Error())
+			}
+			if !ip.IsLoopback() {
+				return OK, "public_url " + n + ", configured web listener " + listen + "; web sign-in is required and the JSON API stays on its private unix socket; VPN reachability, HTTPS termination and host firewall rules are not checked"
 			}
 			return OK, "public_url " + n + ", listening on loopback " + listen + "; " + d.firewallNote(ctx) + "; whether the forwarder serves the name to that port is not checked (it needs the network); the tailscale-serve step shows the mapping (read-only) and creates it as workharbor, never a public funnel"
 		},

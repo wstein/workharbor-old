@@ -173,11 +173,11 @@ func TestRunRefusesASocketDirectoryOthersCanEnter(t *testing.T) {
 	}
 }
 
-func TestRunRefusesANonLoopbackAddress(t *testing.T) {
+func TestRunRefusesAWildcardAddress(t *testing.T) {
 	d, _ := newDeps(t)
 	d.Config.Listen = "0.0.0.0:0"
-	if err := Run(context.Background(), d); err == nil || !strings.Contains(err.Error(), "loopback") {
-		t.Errorf("Run = %v, want a loopback refusal", err)
+	if err := Run(context.Background(), d); err == nil || !strings.Contains(err.Error(), "unspecified") {
+		t.Errorf("Run = %v, want a wildcard refusal", err)
 	}
 }
 
@@ -635,5 +635,44 @@ func TestRedactedLogfEscapesControlCharacters(t *testing.T) {
 		if !strings.Contains(got, want) {
 			t.Errorf("log line %q lacks %q", got, want)
 		}
+	}
+}
+
+func TestDirectWebListenerRequiresRemotePasskeyReadiness(t *testing.T) {
+	for _, publicURL := range []string{"", "http://w.example", "https://w.example"} {
+		t.Run(publicURL, func(t *testing.T) {
+			d, _ := newDeps(t)
+			d.Config.Listen = "10.44.0.1:8787"
+			d.Clock = service.SystemClock{}
+			d.Config.PublicURL = publicURL
+			d.Ready = func(net.Addr, net.Addr) { t.Error("remote listener became ready without a usable enrolled passkey") }
+			err := Run(context.Background(), d)
+			if err == nil || !strings.Contains(err.Error(), "passkey") {
+				t.Fatalf("Run = %v, want remote passkey readiness refusal before binding", err)
+			}
+		})
+	}
+}
+
+func TestRemoteWebReadinessUsesEffectiveOriginAndFailsClosedOnStoreError(t *testing.T) {
+	d, st := newDeps(t)
+	d.Config.Listen = "10.44.0.1:8787"
+	d.Config.Board = &config.Board{PublicURL: "https://w.example"}
+	if err := st.AddPasskey(context.Background(), store.Passkey{ID: "k1", Name: "phone", Credential: []byte("credential"), CreatedAt: time.Now()}); err != nil {
+		t.Fatal(err)
+	}
+	if remote, err := remoteWebReady(context.Background(), d); err != nil || !remote {
+		t.Fatalf("enrolled effective HTTPS origin: remote=%v err=%v", remote, err)
+	}
+	if err := st.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := remoteWebReady(context.Background(), d); err == nil || !strings.Contains(err.Error(), "passkey readiness") {
+		t.Fatalf("closed passkey store: %v", err)
+	}
+	d.Config.Listen = "127.0.0.1:8787"
+	d.Config.Board = nil
+	if remote, err := remoteWebReady(context.Background(), d); err != nil || remote {
+		t.Fatalf("loopback recovery: remote=%v err=%v", remote, err)
 	}
 }

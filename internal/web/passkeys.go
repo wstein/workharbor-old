@@ -33,6 +33,9 @@ type Passkeys interface {
 // token no longer signs in to the web UI (no password fallback, D45); the token
 // stays for the host's CLI.
 func (s *Server) passkeyMode(ctx context.Context) bool {
+	if s.opt.RequirePasskey {
+		return true
+	}
 	if s.opt.Passkeys == nil {
 		return false
 	}

@@ -37,6 +37,9 @@ type Options struct {
 	// the step-up approvals (D45). Without it the UI signs in with the token and
 	// refuses to answer a review.
 	Passkeys Passkeys
+	// RequirePasskey latches remote sign-in to passkeys even after the last key
+	// is revoked. Only trusted listener configuration sets this value.
+	RequirePasskey bool
 	// Changes, if set, adds the page of changes that need a passkey: a workflow
 	// change the host has not confirmed and the revocation of the forge tokens
 	// (D45, issue #107). Without Passkeys it only lists them.
