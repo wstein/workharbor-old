@@ -240,3 +240,37 @@ func TestAnUnnormalisedPublicURLNamesTheFixAsTheWriter(t *testing.T) {
 		t.Errorf("%s %q", st, detail)
 	}
 }
+
+func TestTheTailscaleCommandResultsDoNotShareCachedStorage(t *testing.T) {
+	for _, source := range []string{"preview", "build"} {
+		for _, mutation := range []string{"command", "argv"} {
+			t.Run(source+"/"+mutation, func(t *testing.T) {
+				c := steps(t, tailscaleDeps(t, `{"listen":"127.0.0.1:9191"}`, scripted{}, "tailscale"))["tailscale-serve"]
+				var cmds []Cmd
+				if source == "preview" {
+					cmds = c.Fix.Preview()
+				} else {
+					var err error
+					cmds, err = c.Fix.Build(context.Background(), &answers{})
+					if err != nil {
+						t.Fatal(err)
+					}
+				}
+				if mutation == "command" {
+					cmds[0] = Cmd{Argv: []string{"changed"}, Sudo: true}
+				} else {
+					cmds[0].Argv[3] = "9292"
+				}
+				built, err := c.Fix.Build(context.Background(), &answers{})
+				if err != nil {
+					t.Fatal(err)
+				}
+				for _, got := range [][]Cmd{c.Fix.Preview(), built} {
+					if len(got) != 1 || got[0].Sudo || strings.Join(got[0].Argv, " ") != "tailscale serve --bg 9191" {
+						t.Errorf("cached command changed: %+v", got)
+					}
+				}
+			})
+		}
+	}
+}
