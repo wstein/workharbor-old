@@ -154,6 +154,8 @@ type Resources struct {
 // Inventory lists the networks, volumes and sidecars an owner has.
 type Inventory struct {
 	Networks, Volumes, Sidecars []string
+	// Helpers are owned auxiliary resources, such as storage writer claims.
+	Helpers []string
 }
 
 // ExecRequest is a command to run in a running environment.
