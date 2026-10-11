@@ -8,7 +8,8 @@ How to set up and run WorkHarbor. WorkHarbor is building release 1. The service 
 
 {{< cards >}}
   {{< card link="first-run" title="Start here: First run" subtitle="The path from a prepared host to the first task (draft, provisional)." icon="arrow-right" >}}
-  {{< card link="host-setup" title="Prepare the Mac mini" subtitle="macOS, user, power, Homebrew, Apple Container, VPN, firewall, backups." icon="desktop-computer" >}}
+  {{< card link="host-setup" title="Prepare the Mac mini" subtitle="macOS, user, power, Homebrew, existing runtime, VPN, firewall, backups." icon="desktop-computer" >}}
+  {{< card link="container-runtime" title="Container runtime" subtitle="Existing sockets, runtime choices and current support limits." icon="server" >}}
   {{< card link="security" title="Security notes" subtitle="What you accept by running agents, and how to limit it." icon="shield-check" >}}
   {{< card link="vendor-terms" title="Agent vendor terms" subtitle="What a subscription login means under WorkHarbor, with the sources." icon="scale" >}}
   {{< card link="run-the-supervisor" title="Run the supervisor" subtitle="whr serve, workspaces, passkeys, previews, doctor (draft, provisional)." icon="server" >}}
