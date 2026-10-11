@@ -39,6 +39,7 @@ func main() {
 func runCmd(args []string) {
 	fs := flag.NewFlagSet("run", flag.ExitOnError)
 	pidfile := fs.String("pidfile", "", "path to write the child PGID/PID")
+	envfile := fs.String("env-file", "", "private one-use environment file")
 	_ = fs.Parse(args)
 	cmdArgs := fs.Args()
 	if len(cmdArgs) == 0 {
@@ -50,7 +51,23 @@ func runCmd(args []string) {
 		os.Exit(2)
 	}
 
-	cmd := exec.CommandContext(context.Background(), cmdArgs[0], cmdArgs[1:]...) //nolint:gosec // launcher runs the commanded child process
+	var childEnv []string
+	executable := cmdArgs[0]
+	if *envfile != "" {
+		env, err := readExecEnvironment(*envfile)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "environment: %v\n", err)
+			os.Exit(1)
+		}
+		childEnv = append(os.Environ(), env...)
+		executable, err = resolveExecPath(executable, childEnv)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "command: %v\n", err)
+			os.Exit(1)
+		}
+	}
+	cmd := exec.CommandContext(context.Background(), executable, cmdArgs[1:]...) //nolint:gosec // launcher runs the commanded child process
+	cmd.Env = childEnv
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
