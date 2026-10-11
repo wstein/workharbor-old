@@ -201,3 +201,24 @@ func TestDockerGeneratedSpecPassesPrepareWithoutRepositoryPATHOverride(t *testin
 		t.Fatal("trusted agent exec did not receive BundleDock utility PATH")
 	}
 }
+
+func TestFactoryAloneAppliesDockerOutboundChoice(t *testing.T) {
+	o := SpecOptions{Owner: Owner, Backend: "docker", ToolStore: t.TempDir(), Toolbox: t.TempDir(), Env: config.Environment{Image: "golang:1.25"}.Resolved()}
+	s := o.For(domain.Workspace{ID: "w"})
+	opts := runtime.PrepareOptions{FS: runtime.OSFS{}, Home: t.TempDir(), Roots: []string{o.ToolStore, o.Toolbox}, Owns: ownsVolumes(s)}
+	dockerConfig := &config.Config{Runtime: config.Runtime{Backend: "docker"}}
+	p, err := prepareRuntimeSpec(dockerConfig, opts, s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n, ok := p.DockerOutboundNetwork(); !ok || n.Internal || n.Name != s.Network.Name {
+		t.Fatalf("factory outbound=%+v %v", n, ok)
+	}
+	p, err = prepareRuntimeSpec(&config.Config{}, opts, s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := p.DockerOutboundNetwork(); ok || !p.Spec().Network.Internal {
+		t.Fatal("Apple factory widened network")
+	}
+}

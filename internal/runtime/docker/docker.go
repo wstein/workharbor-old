@@ -30,7 +30,7 @@ const (
 )
 
 // ErrUnsupported identifies a capability the backend does not implement.
-var ErrUnsupported = errors.New("docker: unsupported capability")
+var ErrUnsupported = rt.ErrUnsupported
 
 // Adapter manages only resources carrying its owner and role labels.
 type Adapter struct {
@@ -238,6 +238,12 @@ func (a *Adapter) Provision(ctx context.Context, p rt.PreparedSpec) (string, err
 		return "", rt.ErrNotPrepared
 	}
 	s := p.Spec()
+	if !s.Network.Internal {
+		n, ok := p.DockerOutboundNetwork()
+		if !ok || n != s.Network {
+			return "", rt.ErrNotPrepared
+		}
+	}
 	if err := a.checkSocketMounts(s.Mounts); err != nil {
 		return "", err
 	}
@@ -331,6 +337,8 @@ type named struct {
 	Name       string
 	Labels     map[string]string
 	Driver     string
+	Scope      string
+	Internal   bool
 	Options    map[string]string
 	Containers map[string]json.RawMessage
 }
@@ -347,7 +355,20 @@ func (a *Adapter) ensureNetwork(ctx context.Context, n rt.Network) error {
 	if !missing(err) {
 		return err
 	}
-	return a.request(ctx, http.MethodPost, "/networks/create", map[string]any{"Name": n.Name, "Internal": n.Internal, "CheckDuplicate": true, "Labels": labels(a.owner, "network")}, &existing)
+	if err := a.request(ctx, http.MethodPost, "/networks/create", map[string]any{"Name": n.Name, "Driver": "bridge", "Internal": n.Internal, "CheckDuplicate": true, "Labels": labels(a.owner, "network")}, &existing); err != nil {
+		return err
+	}
+	id := existing.ID
+	if id == "" {
+		return errors.New("docker: network creation has uncertain identity; operator inspection required")
+	}
+	if err := a.request(ctx, http.MethodGet, "/networks/"+url.PathEscape(id), nil, &existing); err != nil {
+		return err
+	}
+	if existing.ID != id || existing.Name != n.Name || !owned(existing.Labels, a.owner, "network") || existing.Driver != "bridge" || existing.Scope != "local" || existing.Internal != n.Internal || len(existing.Containers) != 0 {
+		return rt.ErrNotOwned
+	}
+	return nil
 }
 
 func (a *Adapter) ensureVolume(ctx context.Context, name string) error {

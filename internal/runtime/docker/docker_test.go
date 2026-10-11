@@ -96,7 +96,7 @@ func TestUnsupportedQuotaFailsBeforeResourceCreation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := a.Provision(context.Background(), prep); !errors.Is(err, ErrUnsupported) {
+	if _, err := a.Provision(context.Background(), prep); !errors.Is(err, runtime.ErrUnsupported) {
 		t.Fatalf("quota = %v, want ErrUnsupported", err)
 	}
 }

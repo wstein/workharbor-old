@@ -284,6 +284,9 @@ func (a *Adapter) Provision(ctx context.Context, prep runtime.PreparedSpec) (str
 	if !prep.Prepared() {
 		return "", runtime.ErrNotPrepared
 	}
+	if _, has := prep.DockerOutboundNetwork(); has {
+		return "", fmt.Errorf("%w: Docker outbound network policy", runtime.ErrUnsupported)
+	}
 	if _, has := prep.PrivateExecVolume(); has {
 		return "", fmt.Errorf("%w: bounded private execution storage", runtime.ErrUnsupported)
 	}

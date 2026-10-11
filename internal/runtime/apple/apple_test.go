@@ -498,3 +498,20 @@ func TestProvisionRejectsPrivateMemoryPlanBeforeCLI(t *testing.T) {
 		t.Fatal("Apple silently emulated private memory volume")
 	}
 }
+
+func TestProvisionRejectsDockerOutboundPlanBeforeCLI(t *testing.T) {
+	r := &recorder{}
+	a := &Adapter{owner: "o1", run: r.run}
+	s := baseSpec()
+	s.Network.Name = s.Owner + "-net-test"
+	p, err := runtime.Prepare(runtime.PrepareOptions{FS: runtime.OSFS{}, Home: testHome(t), DockerOutbound: &runtime.DockerOutbound{Name: s.Network.Name, Owner: s.Owner}}, s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.Provision(context.Background(), p); !errors.Is(err, runtime.ErrUnsupported) {
+		t.Fatalf("outbound plan=%v", err)
+	}
+	if len(r.calls) != 0 {
+		t.Fatal("Apple applied Docker's outbound exception")
+	}
+}

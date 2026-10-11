@@ -54,3 +54,12 @@ func backendBuildDir(c *config.Config) string {
 	}
 	return GuestBuild
 }
+
+// prepareRuntimeSpec is the trusted factory boundary for backend policy choices.
+// Repository specs cannot select D62's Docker outbound exception themselves.
+func prepareRuntimeSpec(c *config.Config, opts runtime.PrepareOptions, s runtime.Spec) (runtime.PreparedSpec, error) {
+	if c.Runtime.IsDocker() {
+		opts.DockerOutbound = &runtime.DockerOutbound{Name: s.Network.Name, Owner: Owner}
+	}
+	return runtime.Prepare(opts, s)
+}

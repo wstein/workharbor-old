@@ -403,7 +403,7 @@ func Build(c *config.Config, exe, home string, logf func(string, ...any)) (Deps,
 		roots = append(roots, c.Runtime.Toolbox)
 	}
 	prepare := func(s runtime.Spec) (runtime.PreparedSpec, error) {
-		return runtime.Prepare(runtime.PrepareOptions{
+		return prepareRuntimeSpec(c, runtime.PrepareOptions{
 			FS: runtime.OSFS{}, Home: home, Roots: roots,
 			Owns: ownsVolumes(s),
 		}, s)

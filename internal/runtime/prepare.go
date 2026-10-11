@@ -12,6 +12,8 @@ import (
 
 // PrepareOptions are what the one checked step needs from the host.
 type PrepareOptions struct {
+	// DockerOutbound is a trusted Docker-only D62 choice, never repository input.
+	DockerOutbound *DockerOutbound
 	// PrivateExecVolume requests trusted bounded auxiliary memory storage.
 	PrivateExecVolume *PrivateExecVolume
 	FS                FS
@@ -31,9 +33,10 @@ type PrepareOptions struct {
 // the only way to get a non-zero one is Prepare, and Provision refuses any
 // other (ErrNotPrepared): nothing unchecked can reach the runtime.
 type PreparedSpec struct {
-	privateExec *PrivateExecPlan
-	spec        Spec
-	ok          bool
+	privateExec    *PrivateExecPlan
+	dockerOutbound *Network
+	spec           Spec
+	ok             bool
 }
 
 // Spec returns a copy of the checked spec, with every bind mount at its
@@ -186,7 +189,11 @@ func Prepare(opts PrepareOptions, spec Spec) (PreparedSpec, error) {
 	if err != nil {
 		return PreparedSpec{}, err
 	}
-	return PreparedSpec{spec: out, privateExec: plan, ok: true}, nil
+	outbound, err := prepareDockerOutbound(opts, &out)
+	if err != nil {
+		return PreparedSpec{}, err
+	}
+	return PreparedSpec{spec: out, privateExec: plan, dockerOutbound: outbound, ok: true}, nil
 }
 
 // minDenyBits is the widest prefix the proxy is told to refuse: a /0 would
