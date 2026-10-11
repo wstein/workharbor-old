@@ -169,7 +169,7 @@ Over SSH, use the `whr` CLI; never run `container` directly. `whr ls`, `whr show
 
 ## 7. Reach it from your phone
 
-The web UI of WorkHarbor listens on **loopback only** (`listen`), and the JSON API is not on the network at all: it is served on a unix socket, `api.sock` in the state directory (`~/.local/state/whr`, a `0700` directory), which only `workharbor`'s own account can open, so the `whr` commands work in `workharbor`'s session and a leaked API token is no use from the phone (D29). Sign-in to the web UI is by passkey once one is enrolled. A guest container reaches anything on the Mac's LAN address or on all interfaces, even from an isolated network, but not loopback ({{< status verified >}} in [the host-reachability spike](../spikes/host-reachability.md), issue #69). Your phone reaches WorkHarbor through a forwarder. Pick one option.
+The web UI of WorkHarbor listens on **loopback by default** (`"listen": "127.0.0.1:8787"`), and the JSON API is not on the network at all: it is served on a unix socket, `api.sock` in the state directory (`~/.local/state/whr`, a `0700` directory), which only `workharbor`'s own account can open, so the `whr` commands work in `workharbor`'s session and a leaked API token is no use from the phone (D29). Sign-in to the web UI is by passkey once one is enrolled. A guest container reaches anything on the Mac's LAN address or on all interfaces, even from an isolated network, but not loopback ({{< status verified >}} in [the host-reachability spike](../spikes/host-reachability.md), issue #69). Your phone reaches WorkHarbor through a forwarder, or the explicitly configured WireGuard interface in option C. Pick one option.
 
 ### Option A: Tailscale (default)
 
@@ -178,7 +178,7 @@ The quickest option. The Mac gets its own VPN interface and a stable name, and T
 1. Install the Tailscale app on the Mac (step 5, as the administrator) and on the phone. Sign in on the Mac **in `workharbor`'s session**, the one that stays logged in; whether the app keeps the Mac on the VPN while no one or another user is logged in is {{< status unverified >}}.
 2. As `workharbor`, forward the Mac's Tailscale name to WorkHarbor on loopback with HTTPS: `tailscale serve --bg <port>` (check the exact syntax with `tailscale serve --help`). WorkHarbor itself stays on loopback.
 3. Optional: limit the phone to that port with a Tailscale access rule.
-4. Whether a guest container can reach the Mac's Tailscale address is {{< status unverified >}} (issue #69); the API token guards it either way.
+4. Whether a guest container can reach the Mac's Tailscale address is {{< status unverified >}} (issue #69); web sign-in guards the web UI either way. The JSON API is never forwarded.
 
 Tailscale's coordination server is a third party. [Headscale](https://github.com/juanfont/headscale) replaces it with a self-hosted one.
 
@@ -188,7 +188,7 @@ No VPN software on the Mac and no third party. A FRITZ!Box offers WireGuard from
 
 1. On the FRITZ!Box: *Internet → Permit Access → VPN (WireGuard)*, add a connection for your phone, and import it into the WireGuard app with the QR code.
 2. The phone then reaches the Mac at its LAN address. There is no VPN interface on the Mac, so the address alone does not tell your phone from any other device on the LAN.
-3. So WorkHarbor stays on loopback, and a small HTTPS proxy on the Mac's LAN address forwards to it. Guest containers can reach that proxy too, so a `pf` packet-filter rule admits only the addresses the FRITZ!Box gives VPN clients to its port, and the API token guards every request. The macOS firewall in System Settings cannot do this: it filters by app, not by address. The `pf` rule and how the FRITZ!Box numbers VPN clients are {{< status unverified >}} (issue #69): check the address your phone gets.
+3. So WorkHarbor stays on loopback, and a small HTTPS proxy on the Mac's LAN address forwards to it. Guest containers can reach that proxy too, so a `pf` packet-filter rule admits only the addresses the FRITZ!Box gives VPN clients to its port, and web sign-in guards the web UI. The JSON API stays on its private unix socket. The macOS firewall in System Settings cannot do this: it filters by app, not by address. The `pf` rule and how the FRITZ!Box numbers VPN clients are {{< status unverified >}} (issue #69): check the address your phone gets.
 4. The phone app needs HTTPS: use your own certificate authority (installed on the phone) or a certificate for a domain you own.
 
 A line without a public IPv4 address (DS-Lite, carrier-grade NAT) may not accept inbound WireGuard ({{< status unverified >}}); Tailscale works there.
@@ -196,6 +196,11 @@ A line without a public IPv4 address (DS-Lite, carrier-grade NAT) may not accept
 ### Option C: WireGuard on the Mac
 
 A VPN interface like Tailscale's, without a third party, but you forward a UDP port on the router to the Mac and manage keys yourself. Choose it only if you need both properties.
+
+To bind the web UI directly to that interface, set `"listen": "10.44.0.1:8787"` in `config.json`, substituting the Mac's own WireGuard IP and chosen port (IPv6 example: `"[fd42::1]:8787"`), then restart `whr serve`. This existing setting selects one literal unicast IP; it does not add a second loopback listener. Empty addresses, wildcard addresses (`0.0.0.0`, `::`), host names, multicast, broadcast, link-local and scoped-zone addresses are refused. Keep the loopback setting for Tailscale's `tailscale serve` option above. `whr doctor` reports the configured address and refuses a wildcard.
+
+The operator must verify that the chosen IP belongs to the WireGuard interface and restrict host firewall access appropriately; an accepted address proves neither VPN isolation nor protection from guest containers. Before switching away from loopback, set the effective HTTPS `public_url` (or `board.public_url`) and enrol a passkey through the host CLI. Without both, the non-loopback listener refuses to start; restart on loopback for enrolment or recovery. The remote listener never accepts the API token for web sign-in, even after its last passkey is revoked, and its session cookies always use `Secure` and the `__Host-` prefix. For remote passkeys and the phone app, provide trusted HTTPS at the configured `public_url`, with TLS termination reaching this web listener; WireGuard does not replace HTTPS or D45's fresh assertion for sensitive answers. The JSON API stays on its private unix socket, and no `/v1` route is served on the TCP listener, even with an API token. A direct non-loopback listener counts as remote access for the account check (D49): use a dedicated standard account. GitHub App creation keeps its separate loopback-only setup listener; if `listen` already names the VPN IP, use `whr github app create --listen 127.0.0.1:8787 --local` in a browser on this Mac while `whr serve` is stopped. Binding and reachability on the reference host's actual WireGuard setup are {{< status unverified >}} (issue #539); the address-validation, listener and route-boundary tests do not measure that setup.
+
 
 ## 8. Firewall and SSH
 
