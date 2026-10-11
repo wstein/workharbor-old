@@ -47,7 +47,7 @@ A self-hosted service in which AI coding agents carry out project work independe
 - Usage is a live coding assistant, not an automation pipeline: the developer chats with an agent about the work, then detaches while it works for 15 to 60 minutes or longer, and returns when it needs them. A personal tool with one developer and a handful of concurrent sessions.
 - The developer attaches via chat, SSH or an editor temporarily. Disconnecting never interrupts the agent.
 - Web UI and `whr` CLI are two front ends over one service layer: the CLI calls the JSON API, the web UI is server-rendered HTML (see D8).
-- First host: Apple-silicon Mac mini on Apple Container, recommended M6 with 32 GB memory and 512 GB storage (D32). Other runtimes later via adapters.
+- First host: an Apple-silicon Mac mini, recommended M6 with 32 GB memory and 512 GB storage (D32). The working proof of concept runs its environments on a Docker-compatible runtime; the built adapter targets Apple Container. Runtime tiers and what each needs are in the [requirements](../requirements.md) (R-13); the Docker-compatible adapter is {{< status open >}}.
 
 The central concept is an **agent task supervisor with managed workspaces**, not an editor-centred dev environment.
 
@@ -59,10 +59,10 @@ The central concept is an **agent task supervisor with managed workspaces**, not
 | --- | --- |
 | Deployment | On-premises, one developer |
 | Hardware | Apple-silicon Mac mini: M6 with 32 GB memory and 512 GB storage recommended; on a budget 16 GB, with 512 GB or with 256 GB plus an external SSD; 24 GB / 512 GB in between (D32, §8) |
-| Runtime | Apple Container (per-container VM isolation); Firecracker microVMs on Linux in the medium term (#140); Proxmox VE and VMware vSphere, and a Windows host with Hyper-V VMs, in the long term (#140); Docker/Podman and other microVMs later; not VirtualBox or WSL2 as runtimes (§13) |
+| Runtime | Tier 1: a Docker-compatible runtime through the socket the host already has (the proof of concept; `whr setup` installs no runtime). Tier 2: Podman and Apple Container (per-container VM isolation; the adapter is built). Tier 3: Firecracker microVMs on Linux (#140). Proxmox VE and VMware vSphere, and a Windows host with Hyper-V VMs, in the long term (#140); not VirtualBox or WSL2 as runtimes (§13). Only the most important are supported |
 | Capacity | **4 concurrent instances realistic, 8 a stretch goal** (see §8) |
 | Overhead | Light operational and resource cost |
-| Access | VPN, temporary SSH, VS Code / JetBrains via SSH; code-server optional and later |
+| Access | WireGuard or Tailscale (`tailscale serve` to the loopback web UI, D29), temporary SSH, VS Code / JetBrains via SSH; code-server optional and later |
 | Forges | Gitea, Forgejo, Codeberg, GitLab, GitHub (release 1: GitHub, D15) |
 | CI | Drone medium/long term, behind an adapter |
 | Auth | OAuth for the five forges (release 1: a static access token and passkeys, §9.5, D45; the forge through a GitHub App, D15) |

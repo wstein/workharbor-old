@@ -77,7 +77,8 @@ Reboot considerations also include power-loss/UPS behaviour and macOS auto-updat
 
 Built CLI first (D12): the slice is the core loop through `whr`; the web UI and the phone client come after it. The [Dogfood milestone](https://github.com/wstein/workharbor/milestone/5) comes first: the subset that lets WorkHarbor run its own issues (D34). Werner's subsequent [D53](native-codex.md) prioritizes full native Codex support across WorkHarbor and crewbook as P1, before Antigravity; its contract and measurements do not wait for #28. The release boundary and measured capability gates stay in force.
 
-- [ ] Apple Container backend, one host, native adapter
+- [ ] Apple Container backend, one host, native adapter (runtime tier 2; the adapter is built)
+- [ ] Docker-compatible backend through the host's existing socket (runtime tier 1, the proof of concept), with `whr setup` finding the socket and installing no runtime ([requirements](../requirements.md) R-13, R-40)
 - [ ] Built-in agent adapters for Claude Code (first, built) and Codex CLI (a target: not built, #35; §5.2, §5.5), with observed progress and validated recovery
 - [ ] Task/workspace/run/decision model with durable state, event log, reconciler
 - [ ] Workspaces with named agents (D42) in two steps: the dogfood slice runs one named agent per workspace, with its agent clone and the bundle export (#90, #91); several agents in one environment at once follow in R1 Complete (#94)
@@ -149,7 +150,7 @@ A target in the checklist above is a target, not a claim, until its row says *in
 
 - [ ] API-key mode as a full peer (D41, #83): the host-side key proxy that issues a key per run (§7.3) instead of the configuration's key file, spend budgets (#37) and per-key usage (#48)
 - [ ] OAuth providers, Gitea/Forgejo/GitLab/GitHub adapters
-- [ ] Docker/Podman backends, remote Linux hosts (host worker becomes remote-capable)
+- [ ] Podman backend (runtime tier 2), remote Linux hosts (host worker becomes remote-capable)
 - [ ] Alpine as a first-class console base (#93): a small image and a fast package manager for the human's console (D43); no agent runs there, so musl only affects the human's own tools
 - [ ] Firecracker as a runtime target (#140): a microVM with its own guest kernel per environment, the isolation model of Apple Container, on a Linux host with KVM (remote, or a Linux VM on the Mac if nested virtualization allows it, {{< status unverified >}}). It boots a kernel and a root filesystem rather than an OCI image, so stock and devcontainer images need a conversion or Kata Containers or firecracker-containerd underneath; the spike decides, and the runtime conformance suite is the gate
 - [ ] Antigravity adapter in degraded mode (`agy` print mode, §5.2, §12) and additional runners
