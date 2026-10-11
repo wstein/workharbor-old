@@ -483,3 +483,18 @@ func TestUpdateEgressNeverPullsAMissingBuiltSidecarImage(t *testing.T) {
 	}
 	noWriteCalls(t, calls)
 }
+
+func TestProvisionRejectsPrivateMemoryPlanBeforeCLI(t *testing.T) {
+	r := &recorder{}
+	a := &Adapter{owner: "o1", run: r.run}
+	p, err := runtime.Prepare(runtime.PrepareOptions{FS: runtime.OSFS{}, Home: testHome(t), Owns: func(v string) bool { return v == "wh-exec" }, PrivateExecVolume: &runtime.PrivateExecVolume{Name: "wh-exec", MemoryMB: 2}}, baseSpec())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.Provision(context.Background(), p); !errors.Is(err, runtime.ErrUnsupported) {
+		t.Fatalf("unsupported memory plan = %v", err)
+	}
+	if len(r.calls) != 0 {
+		t.Fatal("Apple silently emulated private memory volume")
+	}
+}

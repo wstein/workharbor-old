@@ -12,8 +12,10 @@ import (
 
 // PrepareOptions are what the one checked step needs from the host.
 type PrepareOptions struct {
-	FS   FS
-	Home string
+	// PrivateExecVolume requests trusted bounded auxiliary memory storage.
+	PrivateExecVolume *PrivateExecVolume
+	FS                FS
+	Home              string
 	// Roots, when set, are the workspace roots a bind mount must lie inside
 	// (CheckMountsWithin, issue #58).
 	Roots []string
@@ -29,8 +31,9 @@ type PrepareOptions struct {
 // the only way to get a non-zero one is Prepare, and Provision refuses any
 // other (ErrNotPrepared): nothing unchecked can reach the runtime.
 type PreparedSpec struct {
-	spec Spec
-	ok   bool
+	privateExec *PrivateExecPlan
+	spec        Spec
+	ok          bool
 }
 
 // Spec returns a copy of the checked spec, with every bind mount at its
@@ -179,7 +182,11 @@ func Prepare(opts PrepareOptions, spec Spec) (PreparedSpec, error) {
 		sort.Strings(problems)
 		return PreparedSpec{}, &SpecError{Problems: problems}
 	}
-	return PreparedSpec{spec: out, ok: true}, nil
+	plan, err := preparePrivateExec(opts, &out)
+	if err != nil {
+		return PreparedSpec{}, err
+	}
+	return PreparedSpec{spec: out, privateExec: plan, ok: true}, nil
 }
 
 // minDenyBits is the widest prefix the proxy is told to refuse: a /0 would

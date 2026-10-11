@@ -40,10 +40,11 @@ type Capabilities struct {
 // Errors every adapter returns for the same situations, so callers and the
 // conformance suite can tell them apart.
 var (
-	ErrNotFound   = errors.New("environment not found")
-	ErrNotRunning = errors.New("environment is not running")
-	ErrRunning    = errors.New("environment is running and must be stopped first")
-	ErrNotOwned   = errors.New("environment is not owned by this supervisor")
+	ErrUnsupported = errors.New("runtime capability unsupported")
+	ErrNotFound    = errors.New("environment not found")
+	ErrNotRunning  = errors.New("environment is not running")
+	ErrRunning     = errors.New("environment is running and must be stopped first")
+	ErrNotOwned    = errors.New("environment is not owned by this supervisor")
 
 	// ErrNotPrepared is returned by Provision for a spec that did not come from Prepare.
 	ErrNotPrepared = errors.New("the spec was not prepared: use runtime.Prepare")

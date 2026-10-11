@@ -284,6 +284,9 @@ func (a *Adapter) Provision(ctx context.Context, prep runtime.PreparedSpec) (str
 	if !prep.Prepared() {
 		return "", runtime.ErrNotPrepared
 	}
+	if _, has := prep.PrivateExecVolume(); has {
+		return "", fmt.Errorf("%w: bounded private execution storage", runtime.ErrUnsupported)
+	}
 	spec := prep.Spec()
 	if spec.Owner != a.owner {
 		return "", &runtime.SpecError{Problems: []string{fmt.Sprintf("owner %q is not this adapter's owner %q", spec.Owner, a.owner)}}
