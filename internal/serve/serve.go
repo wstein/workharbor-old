@@ -449,8 +449,7 @@ func addBoard(scfg *service.Config, d Deps) {
 // millionths of a dollar, so no float reaches a comparison with a total.
 func Budgets(b config.Budgets) service.Budgets {
 	limit := func(l config.BudgetLimit) service.Limit {
-		duration, _ := time.ParseDuration(l.MaxDuration) // configuration validation has already checked it
-		return service.Limit{MaxDuration: duration, MaxTokens: l.MaxTokens, MaxCostMicroUSD: int64(math.Round(l.MaxCostUSD * 1e6))}
+		return service.Limit{MaxTokens: l.MaxTokens, MaxCostMicroUSD: int64(math.Round(l.MaxCostUSD * 1e6))}
 	}
 	return service.Budgets{PerRun: limit(b.PerRun), PerTask: limit(b.PerTask), SoftPercent: b.SoftPercent}
 }

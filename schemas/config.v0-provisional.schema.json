@@ -170,7 +170,6 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "max_duration": { "type": "string" },
         "max_tokens": { "type": "integer", "minimum": 0 },
         "max_cost_usd": { "type": "number", "minimum": 0 }
       }

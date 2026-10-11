@@ -367,9 +367,8 @@ type Limits struct {
 
 // BudgetLimit is one scope's limits. Zero is no limit.
 type BudgetLimit struct {
-	MaxDuration string  `json:"max_duration,omitempty"`
-	MaxTokens   int64   `json:"max_tokens,omitempty"`   // all reported tokens: input, output, cache read and write
-	MaxCostUSD  float64 `json:"max_cost_usd,omitempty"` // the cost the agent reports
+	MaxTokens  int64   `json:"max_tokens,omitempty"`   // all reported tokens: input, output, cache read and write
+	MaxCostUSD float64 `json:"max_cost_usd,omitempty"` // the cost the agent reports
 }
 
 // Environment is the supervisor's choice of what an agent environment looks
@@ -503,12 +502,6 @@ func (c *Config) Validate() error {
 		}
 	}
 	for name, l := range map[string]BudgetLimit{"budgets.per_run": c.Budgets.PerRun, "budgets.per_task": c.Budgets.PerTask} {
-		if l.MaxDuration != "" {
-			d, err := time.ParseDuration(l.MaxDuration)
-			if err != nil || d < 0 || d%time.Millisecond != 0 {
-				add("%s.max_duration: want a nonnegative Go duration in whole milliseconds", name)
-			}
-		}
 		if l.MaxTokens < 0 || l.MaxCostUSD < 0 || math.IsNaN(l.MaxCostUSD) || math.IsInf(l.MaxCostUSD, 0) {
 			add("%s: a limit cannot be negative", name)
 		}
