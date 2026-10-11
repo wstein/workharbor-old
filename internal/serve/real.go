@@ -65,6 +65,8 @@ func callPrefixes(f func() []string) []string {
 
 // SpecOptions is what an environment's spec is made from.
 type SpecOptions struct {
+	Backend   string
+	Toolbox   string
 	Owner     string
 	Env       config.Environment // resolved
 	ToolStore string             // the host directory of the tool store
@@ -80,7 +82,7 @@ type SpecOptions struct {
 // §7.2). The workspace folder is added by the service, not here.
 func (o SpecOptions) For(w domain.Workspace) runtime.Spec {
 	e := o.Env
-	return runtime.Spec{
+	s := runtime.Spec{
 		Image: e.Image, Owner: o.Owner, CPUs: e.CPUs, MemoryMB: e.MemoryMB, DiskMB: e.DiskMB,
 		Network:      runtime.Network{Name: o.Owner + "-net-" + string(w.ID), Internal: true},
 		User:         "1000:1000",
@@ -95,6 +97,13 @@ func (o SpecOptions) For(w domain.Workspace) runtime.Spec {
 		},
 		Egress: &runtime.Egress{Image: e.Image, Proxy: o.Proxy, Allow: e.EgressAllow, DenyPrefixes: callPrefixes(o.HostPrefixes)},
 	}
+	if o.Backend == "docker" {
+		s.Egress = nil // unsupported sidecar; internal network remains enforced
+		s.Mounts = s.Mounts[:2]
+		s.Mounts = append(s.Mounts, runtime.Mount{Kind: runtime.MountBind, Source: o.Toolbox, Target: "/opt/bundledock/toolbox", ReadOnly: true})
+		s.Tmpfs = append(s.Tmpfs, DockerBuild)
+	}
+	return s
 }
 
 // AgentSpec returns the StartSpec of a run. In dontAsk mode the agent runs only
@@ -169,7 +178,11 @@ func needsAllowlist(c *config.Config) bool {
 // run is that of its repository's workflow, unless the human overrode it.
 func AgentSpecFor(c *config.Config, auth agent.AuthMode) func(domain.Task, domain.Run) agent.StartSpec {
 	return func(t domain.Task, r domain.Run) agent.StartSpec {
-		return AgentSpec(modeFor(c, t.Repo, t.Workflow), c.AgentAllowedTools, auth)(t, r)
+		spec := AgentSpec(modeFor(c, t.Repo, t.Workflow), c.AgentAllowedTools, auth)(t, r)
+		if c.Runtime.IsDocker() {
+			spec.Env = append(spec.Env, "PATH=/opt/bundledock/toolbox/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin")
+		}
+		return spec
 	}
 }
 
@@ -306,9 +319,18 @@ func Build(c *config.Config, exe, home string, logf func(string, ...any)) (Deps,
 	if err := checkToolStore(c.Roots.ToolStore, logf); err != nil {
 		return Deps{}, nil, err
 	}
-	proxy, err := service.InstalledProxy(exe)
+	bin := ToolsMount + "/profiles/" + profile + "/bin"
+	rt, err := configuredRuntime(c, bin)
 	if err != nil {
 		return Deps{}, nil, err
+	}
+	imageBuilder, _ := rt.(baseimage.Builder)
+	proxy := ""
+	if !c.Runtime.IsDocker() {
+		proxy, err = service.InstalledProxy(exe)
+		if err != nil {
+			return Deps{}, nil, err
+		}
 	}
 	env, mode, err := service.AgentCredentials(c)
 	if err != nil {
@@ -349,13 +371,6 @@ func Build(c *config.Config, exe, home string, logf func(string, ...any)) (Deps,
 		_ = st.Close()
 		return Deps{}, nil, err
 	}
-	bin := ToolsMount + "/profiles/" + profile + "/bin"
-	rt, err := apple.New(Owner, apple.WithShim(bin+"/whr-shim"))
-	if err != nil {
-		_ = git.Close()
-		_ = st.Close()
-		return Deps{}, nil, err
-	}
 	// Env files an earlier run left in the temp directory (an agent's API key could
 	// be in one, from before the environment went through a pipe) go now.
 	if gone := apple.SweepEnvFiles("", time.Now()); len(gone) > 0 {
@@ -367,7 +382,7 @@ func Build(c *config.Config, exe, home string, logf func(string, ...any)) (Deps,
 	if spec.Image == "" {
 		// The workharbor base image (D44): built once, again only when the
 		// pinned base changes. The first start takes a while.
-		tag, built, err := baseimage.Ensure(context.Background(), rt, baseimage.Distro(spec.Base), filepath.Join(dir, "build"))
+		tag, built, err := baseimage.Ensure(context.Background(), imageBuilder, baseimage.Distro(spec.Base), filepath.Join(dir, "build"))
 		if err != nil {
 			_ = git.Close()
 			_ = st.Close()
@@ -379,8 +394,14 @@ func Build(c *config.Config, exe, home string, logf func(string, ...any)) (Deps,
 		spec.Image = tag
 	}
 	hostPrefixes := func() []string { return HostIPv6Prefixes(logf) }
-	opts := SpecOptions{Owner: Owner, Env: spec, ToolStore: c.Roots.ToolStore, Proxy: proxy, HostPrefixes: hostPrefixes}
-	roots := append(append([]string(nil), c.Roots.Workspaces...), c.Roots.ToolStore, filepath.Dir(proxy))
+	opts := SpecOptions{Owner: Owner, Backend: c.Runtime.Backend, Toolbox: c.Runtime.Toolbox, Env: spec, ToolStore: c.Roots.ToolStore, Proxy: proxy, HostPrefixes: hostPrefixes}
+	roots := append(append([]string(nil), c.Roots.Workspaces...), c.Roots.ToolStore)
+	if proxy != "" {
+		roots = append(roots, filepath.Dir(proxy))
+	}
+	if c.Runtime.IsDocker() {
+		roots = append(roots, c.Runtime.Toolbox)
+	}
 	prepare := func(s runtime.Spec) (runtime.PreparedSpec, error) {
 		return runtime.Prepare(runtime.PrepareOptions{
 			FS: runtime.OSFS{}, Home: home, Roots: roots,
@@ -399,7 +420,10 @@ func Build(c *config.Config, exe, home string, logf func(string, ...any)) (Deps,
 	}
 	consoleOpts := ConsoleOptions{Owner: Owner, Image: consoleTag, Console: c.Console.Resolved(), Roots: c.Roots.Workspaces, Proxy: proxy, HostPrefixes: hostPrefixes}
 	ensureConsole := func(ctx context.Context) error {
-		_, built, err := console.Ensure(ctx, rt, consoleDistro, filepath.Join(dir, "build"))
+		if imageBuilder == nil {
+			return errors.New("runtime docker: console image builds are unsupported")
+		}
+		_, built, err := console.Ensure(ctx, imageBuilder, consoleDistro, filepath.Join(dir, "build"))
 		if built {
 			logf("built the console image %s", consoleTag)
 		}
@@ -421,7 +445,8 @@ func Build(c *config.Config, exe, home string, logf func(string, ...any)) (Deps,
 		ConsoleSSH:          consoleSSH,
 		SocketPath:          config.APISocketPath(c.StateDir, home), Config: c, Store: st, Runtime: rt, Agent: ag, Issues: NewIssueAccess(gh), Forge: NewForgeAccess(gh), Git: git, Owner: Owner,
 		ConsoleSpec: consoleOpts.For, ConsoleImage: ensureConsole, ConsoleDir: consoleOpts.Dir,
-		Environment: Environment(git, Topics(git, c, dir), devcontainer.Options{BaseImage: spec.Image, ToolchainImages: devcontainer.DefaultToolchainImages, Features: &feature.Resolver{Client: oci.New(oci.Config{})}}, rt, Owner, filepath.Join(dir, "build"), func(ctx context.Context, repo string) (map[string]string, error) {
+		BuildDir: backendBuildDir(c),
+		Environment: Environment(git, Topics(git, c, dir), devcontainer.Options{BaseImage: spec.Image, ToolchainImages: devcontainer.DefaultToolchainImages, Features: &feature.Resolver{Client: oci.New(oci.Config{})}}, imageBuilder, Owner, filepath.Join(dir, "build"), func(ctx context.Context, repo string) (map[string]string, error) {
 			a, err := st.FeatureSources(ctx, repo)
 			out := map[string]string{}
 			for ref, ans := range a {
@@ -657,6 +682,9 @@ func Environment(git *hostgit.Git, topics service.TopicsFunc, opt devcontainer.O
 			re.Image = func(ctx context.Context) (string, error) {
 				if !env.Built() {
 					return env.Image, nil
+				}
+				if rt == nil {
+					return "", errors.New("selected runtime does not support repository image builds")
 				}
 				tag := env.Tag(owner)
 				if have, err := rt.HasImage(ctx, tag); err != nil {

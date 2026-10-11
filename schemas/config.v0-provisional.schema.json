@@ -74,6 +74,16 @@
       }
     },
     "state_dir": { "type": "string" },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Explicit existing runtime selection. Omitted preserves Apple. Docker provisioning currently rejects unsupported disk quotas; this does not install a daemon or build images.",
+      "properties": {
+        "backend": { "type": "string", "enum": ["apple", "docker"] },
+        "endpoint": { "type": "string", "description": "Explicit unix:///absolute/socket endpoint for Docker." },
+        "toolbox": { "type": "string", "description": "Absolute existing BundleDock utility bundle, separate from the agent CLI tool store." }
+      }
+    },
     "environment": {
       "type": "object",
       "additionalProperties": false,

@@ -199,6 +199,8 @@ func APISocketPath(stateDir, home string) string {
 
 // Config is the whole file.
 type Config struct {
+	// Runtime selects the existing host adapter; omitted preserves Apple.
+	Runtime Runtime `json:"runtime,omitzero"`
 	// Schema is the optional editor hint `$schema`, the URL of the published JSON
 	// Schema (issue #268). It is data only: nothing resolves, fetches or checks
 	// it, and its value never affects loading or validation.
@@ -478,6 +480,9 @@ func Parse(raw []byte) (*Config, error) {
 func (c *Config) Validate() error {
 	var problems []string
 	add := func(format string, args ...any) { problems = append(problems, fmt.Sprintf(format, args...)) }
+	if err := c.Runtime.validate(); err != nil {
+		add("runtime: %s", err)
+	}
 
 	if err := checkListen(c.Listen); err != "" {
 		add("listen: %s", err)

@@ -34,6 +34,8 @@ import (
 // Deps is everything Run needs, already built. `whr serve` builds the real ones
 // (cmd/whr); tests pass fakes.
 type Deps struct {
+	// BuildDir overrides the Apple build-volume location for backend-specific disposable caches.
+	BuildDir            string
 	ProjectInstructions func(context.Context, domain.Task, domain.Run) (service.ProjectInstructions, error)
 	SkillBinding        func(context.Context, []skillset.Binding) (skillset.Binding, error)
 	PrepareSkills       func(context.Context, domain.Run, service.SkillMount) error
@@ -207,7 +209,7 @@ func Run(ctx context.Context, d Deps) error {
 			}
 			return ""
 		},
-		Config: d.Config, Git: d.Git, Spec: d.Spec, Prepare: d.Prepare, NewID: NewID, Issues: issueSource(d.Issues), BuildDir: GuestBuild,
+		Config: d.Config, Git: d.Git, Spec: d.Spec, Prepare: d.Prepare, NewID: NewID, Issues: issueSource(d.Issues), BuildDir: resolvedBuildDir(d.BuildDir),
 		Topics: d.Topics, EditorDir: d.EditorDir, Shell: d.Shell, Environment: d.Environment, QueueStatus: queueStatus(d.Config),
 	})
 	// The publish path (D51): prepare when a run stops, publish on approval, and
@@ -567,4 +569,11 @@ func issueSource(a *IssueAccess) service.IssueSource {
 		return nil
 	}
 	return a
+}
+
+func resolvedBuildDir(dir string) string {
+	if dir == "" {
+		return GuestBuild
+	}
+	return dir
 }
