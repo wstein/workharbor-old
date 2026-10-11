@@ -30,7 +30,7 @@ One developer works interactively. A request such as "fix issues 1, 2 and 3 and 
 | R-10 | A run executes in an isolated environment: a stock language image with the BundleDock toolbox (common command-line tools, separate from the tool store of the agent CLIs) mounted read-only | built |
 | R-11 | Vendor logins and agent configuration stay in the environment, kept by a persistent home volume; `whr` never reads or stores them (D40) | built |
 | R-12 | The host home, `~/.ssh` and runtime sockets are never mounted into an environment | built |
-| R-13 | Runtime tiers: Docker is tier 1; Podman and Apple Container are tier 2; Firecracker is tier 3. The adapter contract names its capabilities and assumes no Docker semantics | next |
+| R-13 | WorkHarbor supports Docker-compatible runtimes through the socket the host already has. Other runtimes (Apple Container, whose adapter is built, Podman, Firecracker) are decided later. The adapter contract names its capabilities and assumes no Docker semantics | next |
 | **Remote control** | | |
 | R-20 | The developer sees progress, sends instructions and stops a run from a phone or laptop away from home | built |
 | R-21 | The web app is reachable from a laptop or phone away from home over Tailscale (`tailscale serve` to the loopback listener, D29), as the setup step `tailscale-serve` does | built |
@@ -56,7 +56,7 @@ One developer works interactively. A request such as "fix issues 1, 2 and 3 and 
 | Per-action tool approvals, fail-closed timeouts, the 2,000-character cap and truncation warning | The agent runs without single approvals; only the merge needs the human |
 | Approval of the pushed commit SHA | The pull request is the review point |
 | Short tasks, hard pause and process-group cancellation as requirements | Runs last hours; the tool watchdog (R-22) replaces them |
-| Apple Container as the only runtime | It is tier 2 (R-13) |
+| Apple Container as the only runtime | Docker is the supported runtime; Apple Container stays an adapter that is decided later (R-13) |
 | Passkey step-up on every sensitive action | One sign-in per device is enough; the merge stays with the forge |
 | Cold and warm start latency and the Mac mini sizing as acceptance criteria | Not requirements of use; kept in the design as measurements |
 | The full devcontainer file copied into the catalog | The Anchorage `.devcontainer/devcontainer.json` is the contract; this page only states the invariants of R-10 to R-12 |
