@@ -1,0 +1,4 @@
+go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0 run --config .config/golangci.yml
+0 issues.
+go run github.com/editorconfig-checker/editorconfig-checker/v3/cmd/editorconfig-checker@v3.11.3
+go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
