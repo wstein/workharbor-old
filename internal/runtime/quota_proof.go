@@ -146,6 +146,11 @@ func prepareQuota(opts PrepareOptions, s Spec, private *PrivateExecPlan) (*Quota
 		return nil, nil
 	}
 	config := *opts.DockerQuota
+	if guard, ok := config.Resolve.(quotaMountGuard); ok {
+		if err := guard.checkQuotaMounts(opts.FS, cloneSlice(s.Mounts)); err != nil {
+			return nil, err
+		}
+	}
 	if config.Resolve == nil || s.DiskMB < 1 || int64(s.DiskMB) > int64(^uint64(0)>>20) {
 		return nil, quotaUnsupported()
 	}
