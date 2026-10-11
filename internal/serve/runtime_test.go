@@ -7,6 +7,7 @@ import (
 	"crypto/x509"
 	"encoding/binary"
 	"encoding/pem"
+	"errors"
 	"io/fs"
 	"net"
 	"net/http"
@@ -88,15 +89,8 @@ func TestDockerFactoryRequiresLinuxShimAndExplicitStockImage(t *testing.T) {
 		t.Fatal(err)
 	}
 	var listed atomic.Bool
-	server := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet || r.URL.Path != "/v1.45/containers/json" {
-			t.Errorf("unexpected supervisor request %s %s", r.Method, r.URL.Path)
-			w.WriteHeader(500)
-			return
-		}
-		listed.Store(true)
-		_, _ = w.Write([]byte("[]"))
-	}), ReadHeaderTimeout: time.Second}
+	var receivedPath atomic.Value
+	server := &http.Server{Handler: factoryExecutionEngine(t, &listed, &receivedPath), ReadHeaderTimeout: time.Second}
 	go func() { _ = server.Serve(listener) }()
 	t.Cleanup(func() { _ = server.Close() })
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
@@ -131,6 +125,30 @@ func TestDockerFactoryRequiresLinuxShimAndExplicitStockImage(t *testing.T) {
 	}
 	if !listed.Load() {
 		t.Fatal("supervisor did not use configured Docker socket adapter")
+	}
+	// Exercise the actual production Prepare closure and selected adapter. The
+	// existing fake container avoids pretending unsupported quota admission works.
+	prepared, err := deps.Prepare(deps.Spec(domain.Workspace{ID: "w"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if plan, ok := prepared.PrivateExecVolume(); !ok || plan.Name != "whr-exec-w" || plan.MemoryMB != 2 {
+		t.Fatalf("production private plan=%+v %v", plan, ok)
+	}
+	if _, err := deps.Runtime.Provision(context.Background(), prepared); !errors.Is(err, runtime.ErrUnsupported) {
+		t.Fatalf("quota gate=%v", err)
+	}
+	stream, err := deps.Runtime.Exec(context.Background(), "abcdef", runtime.ExecRequest{Cmd: []string{"git", "--version"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, _, code, err := runtime.Collect(stream)
+	if err != nil || code != 0 || string(out) != "service-output\n" {
+		t.Fatalf("service exec code=%d error=%v", code, err)
+	}
+	pathData, _ := receivedPath.Load().(string)
+	if !strings.Contains(pathData, "PATH=/opt/bundledock/toolbox/bin:/tools/profiles/test/bin:/usr/local/go/bin:/usr/bin:/bin\n") {
+		t.Fatalf("factory service executable paths lost: %s", pathData)
 	}
 }
 
@@ -191,14 +209,10 @@ func TestDockerGeneratedSpecPassesPrepareWithoutRepositoryPATHOverride(t *testin
 	}
 	c := &config.Config{Runtime: config.Runtime{Backend: "docker"}}
 	start := AgentSpecFor(c, agent.AuthSubscription)(domain.Task{}, domain.Run{})
-	found := false
 	for _, entry := range start.Env {
-		if strings.HasPrefix(entry, "PATH=") && strings.Contains(entry, "/opt/bundledock/toolbox/bin") {
-			found = true
+		if strings.HasPrefix(entry, "PATH=") {
+			t.Fatal("agent PATH discarded stock-image toolchain entries")
 		}
-	}
-	if !found {
-		t.Fatal("trusted agent exec did not receive BundleDock utility PATH")
 	}
 }
 
@@ -220,5 +234,24 @@ func TestFactoryAloneAppliesDockerOutboundChoice(t *testing.T) {
 	}
 	if _, ok := p.DockerOutboundNetwork(); ok || !p.Spec().Network.Internal {
 		t.Fatal("Apple factory widened network")
+	}
+}
+
+func TestDockerFactoryPreparationSealsOnlyItsPrivateExecVolume(t *testing.T) {
+	o := SpecOptions{Owner: Owner, Backend: "docker", ToolStore: t.TempDir(), Toolbox: t.TempDir(), Env: config.Environment{Image: "golang:1.25"}.Resolved()}
+	s := o.For(domain.Workspace{ID: "w"})
+	opts := runtime.PrepareOptions{FS: runtime.OSFS{}, Home: t.TempDir(), Roots: []string{o.ToolStore, o.Toolbox}, Owns: ownsVolumes(s)}
+	c := &config.Config{Runtime: config.Runtime{Backend: "docker"}}
+	p, err := prepareRuntimeSpec(c, opts, s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan, ok := p.PrivateExecVolume()
+	if !ok || plan.Name != "whr-exec-w" || plan.MemoryMB != 2 || plan.Association != "whr-net-w" {
+		t.Fatalf("factory private plan=%+v %v", plan, ok)
+	}
+	s.Mounts = append(s.Mounts, runtime.Mount{Kind: runtime.MountVolume, Source: plan.Name, Target: "/alias"})
+	if _, err := prepareRuntimeSpec(c, opts, s); err == nil {
+		t.Fatal("repository mount aliased private volume")
 	}
 }

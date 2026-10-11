@@ -76,10 +76,10 @@ type SpecOptions struct {
 	HostPrefixes func() []string
 }
 
-// For returns the spec of a workspace's environment: hardened, on an internal
-// network of its own, with the tool store read-only, the agent home on a named
-// volume of its own and the egress proxy as the only way out (design §5.1,
-// §7.2). The workspace folder is added by the service, not here.
+// For returns the initial hardened workspace spec with read-only tool stores
+// and a persistent login home. Apple uses its internal network and egress proxy;
+// trusted Docker preparation later seals D62's dedicated outbound network.
+// The workspace folder is added by the service, not here.
 func (o SpecOptions) For(w domain.Workspace) runtime.Spec {
 	e := o.Env
 	s := runtime.Spec{
@@ -98,7 +98,7 @@ func (o SpecOptions) For(w domain.Workspace) runtime.Spec {
 		Egress: &runtime.Egress{Image: e.Image, Proxy: o.Proxy, Allow: e.EgressAllow, DenyPrefixes: callPrefixes(o.HostPrefixes)},
 	}
 	if o.Backend == "docker" {
-		s.Egress = nil // unsupported sidecar; internal network remains enforced
+		s.Egress = nil // trusted Prepare later seals D62's dedicated outbound choice
 		s.Mounts = s.Mounts[:2]
 		s.Mounts = append(s.Mounts, runtime.Mount{Kind: runtime.MountBind, Source: o.Toolbox, Target: "/opt/bundledock/toolbox", ReadOnly: true})
 		s.Tmpfs = append(s.Tmpfs, DockerBuild)
@@ -179,9 +179,6 @@ func needsAllowlist(c *config.Config) bool {
 func AgentSpecFor(c *config.Config, auth agent.AuthMode) func(domain.Task, domain.Run) agent.StartSpec {
 	return func(t domain.Task, r domain.Run) agent.StartSpec {
 		spec := AgentSpec(modeFor(c, t.Repo, t.Workflow), c.AgentAllowedTools, auth)(t, r)
-		if c.Runtime.IsDocker() {
-			spec.Env = append(spec.Env, "PATH=/opt/bundledock/toolbox/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin")
-		}
 		return spec
 	}
 }

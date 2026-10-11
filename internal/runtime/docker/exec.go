@@ -76,7 +76,7 @@ func (a *Adapter) Exec(ctx context.Context, id string, req runtime.ExecRequest) 
 	if len(req.Cmd) == 0 {
 		return nil, errors.New("docker: exec command is required")
 	}
-	data, err := environmentData(req.Env)
+	data, err := a.execEnvironment(c.Config.Env, req.Env)
 	if err != nil {
 		return nil, err
 	}

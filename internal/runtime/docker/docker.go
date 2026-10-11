@@ -38,12 +38,13 @@ type Adapter struct {
 	owner, endpoint, shim string
 	client                *http.Client
 	cleanupTimeout        time.Duration
+	execPaths             []string
 	mu                    sync.Mutex
 }
 
 // New uses an existing local Unix socket and a guest path to the trusted shim
 // supplied by the separate agent CLI tool store. No connection is made here.
-func New(owner, endpoint, shim string) (*Adapter, error) {
+func New(owner, endpoint, shim string, options ...Option) (*Adapter, error) {
 	u, err := url.Parse(endpoint)
 	if err != nil || u.Scheme != "unix" || u.Host != "" || !path.IsAbs(u.Path) || u.RawQuery != "" || u.Fragment != "" {
 		return nil, errors.New("docker: an explicit unix:///absolute/socket endpoint is required")
@@ -55,13 +56,19 @@ func New(owner, endpoint, shim string) (*Adapter, error) {
 	transport := &http.Transport{DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
 		return (&net.Dialer{}).DialContext(ctx, "unix", socket)
 	}}
-	return &Adapter{owner: owner, endpoint: endpoint, shim: shim, client: &http.Client{Transport: transport, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}}, nil
+	a := &Adapter{owner: owner, endpoint: endpoint, shim: shim, client: &http.Client{Transport: transport, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}}
+	for _, option := range options {
+		if err := option(a); err != nil {
+			return nil, err
+		}
+	}
+	return a, nil
 }
 
 func (*Adapter) Name() string { return "docker" }
 
 func (*Adapter) Capabilities() rt.Capabilities {
-	return rt.Capabilities{Isolation: rt.SharedKernel, Arch: "unknown", PersistentStorage: []string{"named volumes survive stop, delete and rebuild"}}
+	return rt.Capabilities{Isolation: rt.SharedKernel, Arch: "unknown", PersistentStorage: []string{"login-home volumes survive stop, delete and rebuild; private execution memory is disposable"}}
 }
 
 type apiError struct{ status int }
@@ -132,6 +139,7 @@ type container struct {
 	Config struct {
 		Image  string
 		User   string
+		Env    []string
 		Labels map[string]string
 	}
 	State      struct{ Running bool }

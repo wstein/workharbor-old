@@ -42,7 +42,7 @@ func configuredRuntime(c *config.Config, bin string) (runtime.Adapter, error) {
 		if binary.Class != elf.ELFCLASS64 || (binary.Machine != elf.EM_AARCH64 && binary.Machine != elf.EM_X86_64) {
 			return nil, errors.New("runtime docker requires a supported 64-bit Linux guest shim; host binaries are not guest prerequisites")
 		}
-		return docker.New(Owner, c.Runtime.Endpoint, bin+"/whr-shim")
+		return docker.New(Owner, c.Runtime.Endpoint, bin+"/whr-shim", docker.WithExecPath("/opt/bundledock/toolbox/bin", bin))
 	default:
 		return nil, fmt.Errorf("unsupported runtime backend %q", c.Runtime.Backend)
 	}
@@ -60,6 +60,14 @@ func backendBuildDir(c *config.Config) string {
 func prepareRuntimeSpec(c *config.Config, opts runtime.PrepareOptions, s runtime.Spec) (runtime.PreparedSpec, error) {
 	if c.Runtime.IsDocker() {
 		opts.DockerOutbound = &runtime.DockerOutbound{Name: s.Network.Name, Owner: Owner}
+		id, ok := strings.CutPrefix(s.Network.Name, Owner+"-net-")
+		if !ok || id == "" || s.Owner != Owner {
+			return runtime.PreparedSpec{}, &runtime.SpecError{Problems: []string{"Docker private storage requires a concrete owned environment"}}
+		}
+		privateName := Owner + "-exec-" + id
+		originalOwns := opts.Owns
+		opts.Owns = func(name string) bool { return name == privateName || (originalOwns != nil && originalOwns(name)) }
+		opts.PrivateExecVolume = &runtime.PrivateExecVolume{Name: privateName, MemoryMB: 2}
 	}
 	return runtime.Prepare(opts, s)
 }
