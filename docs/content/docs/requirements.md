@@ -33,7 +33,7 @@ One developer works interactively. A request such as "fix issues 1, 2 and 3 and 
 | R-13 | Runtime tiers: Docker is tier 1; Podman and Apple Container are tier 2; Firecracker is tier 3. The adapter contract names its capabilities and assumes no Docker semantics | next |
 | **Remote control** | | |
 | R-20 | The developer sees progress, sends instructions and stops a run from a phone or laptop away from home | built |
-| R-21 | The web app and API are reachable over WireGuard or Tailscale: the bind address is configurable and authenticated, not loopback only | next |
+| R-21 | The web app is reachable from a laptop or phone away from home over Tailscale (`tailscale serve` to the loopback listener, D29, as the setup step `tailscale-serve` does) or over WireGuard. Where a forwarder is not wanted, the listen address is configurable and the web app stays authenticated | next |
 | R-22 | A tool call without output for 10 minutes raises a warning; after 30 minutes it is aborted. Both limits are configurable; a run itself has no time limit | next |
 | R-23 | A push notification through ntfy reports watchdog warnings, quota stops and finished runs; the notifier exists, the watchdog events are new | next |
 | **Host** | | |
