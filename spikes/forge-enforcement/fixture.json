@@ -1,0 +1,33 @@
+{
+  "manifest": {
+    "repository": "fixture/whtmp-forge-542",
+    "repository_id": 542,
+    "owner_id": 1,
+    "agent_id": 2,
+    "created_for": "542",
+    "owned_by_run": true
+  },
+  "repository": {
+    "id": 542,
+    "full_name": "fixture/whtmp-forge-542",
+    "owner": {"id": 1},
+    "default_branch": "main"
+  },
+  "identity": {"id": 2, "type": "User"},
+  "ruleset": {
+    "id": 9,
+    "target": "branch",
+    "enforcement": "active",
+    "conditions": {"ref_name": {"include": ["~DEFAULT_BRANCH"], "exclude": []}},
+    "bypass_actors": [],
+    "rules": [{"type": "pull_request", "parameters": {"required_approving_review_count": 1}}],
+    "current_user_can_bypass": "never"
+  },
+  "attempt_statuses": {
+    "merge-own-pr": 403,
+    "native-push-default": 403,
+    "create-tag": 422,
+    "release-api": 201,
+    "native-push-outside-agent-namespace": 403
+  }
+}
