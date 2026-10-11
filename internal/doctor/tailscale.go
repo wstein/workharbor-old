@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net"
 	"regexp"
+	"slices"
 	"strconv"
 	"sync"
 )
@@ -118,7 +119,11 @@ func (d Deps) tailscaleServeStep() Check {
 			}
 			fixed = []Cmd{{Argv: []string{bin, "serve", "--bg", d.listenPort()}}}
 		})
-		return fixed
+		cloned := slices.Clone(fixed)
+		for i := range cloned {
+			cloned[i].Argv = slices.Clone(cloned[i].Argv)
+		}
+		return cloned
 	}
 	return Check{
 		Name: "tailscale-serve", Phase: PhaseHost, Step: 7, Title: "Tailscale forwards whr's port with HTTPS (manual step 7)", Optional: true,
