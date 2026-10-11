@@ -40,6 +40,7 @@ func runCmd(args []string) {
 	fs := flag.NewFlagSet("run", flag.ExitOnError)
 	pidfile := fs.String("pidfile", "", "path to write the child PGID/PID")
 	envfile := fs.String("env-file", "", "private one-use environment file")
+	cancelFile := fs.String("cancel-file", "", "private execution cancellation marker")
 	_ = fs.Parse(args)
 	cmdArgs := fs.Args()
 	if len(cmdArgs) == 0 {
@@ -51,6 +52,9 @@ func runCmd(args []string) {
 		os.Exit(2)
 	}
 
+	if cancellationRequested(*cancelFile) {
+		os.Exit(130)
+	}
 	var childEnv []string
 	executable := cmdArgs[0]
 	if *envfile != "" {
@@ -86,6 +90,9 @@ func runCmd(args []string) {
 		os.Exit(1)
 	}
 
+	if cancellationRequested(*cancelFile) {
+		_ = syscall.Kill(-pid, syscall.SIGKILL)
+	}
 	sigCh := make(chan os.Signal, 4)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 	go func() {
@@ -150,6 +157,7 @@ func writePIDFile(path string, pid int) error {
 func killCmd(args []string) {
 	fs := flag.NewFlagSet("kill", flag.ExitOnError)
 	pidfile := fs.String("pidfile", "", "path to read the child PGID/PID")
+	cancelFile := fs.String("cancel-file", "", "private execution cancellation marker")
 	grace := fs.Duration("grace", 500*time.Millisecond, "grace period before SIGKILL")
 	_ = fs.Parse(args)
 
@@ -158,6 +166,10 @@ func killCmd(args []string) {
 		os.Exit(2)
 	}
 
+	if err := markCancelled(*cancelFile, *pidfile); err != nil {
+		fmt.Fprintf(os.Stderr, "cancel: %v\n", err)
+		os.Exit(1)
+	}
 	data, err := os.ReadFile(*pidfile)
 	if err != nil {
 		if os.IsNotExist(err) {
