@@ -44,6 +44,11 @@ If a repository's workflow in the configuration (its preset or its integration b
 
 `whr service install` writes a macOS LaunchAgent that starts the container system and then `whr serve`, kept alive, in the `workharbor` user's login session. `whr service status` says whether it is loaded; `whr service uninstall` removes it (the logs stay). The LaunchAgent needs a logged-in session: see the automatic log-out step in the host page.
 
+For unlimited run duration, retired duration settings and the optional tool
+silence thresholds, see [Tool silence watchdog](tool-watchdog.md). Claude and
+Codex do not yet provide the watchdog contract; the page separates source-test
+evidence from actual runtime support.
+
 ## Workspaces and agents
 
 A workspace is a folder with an agent clone of one repository and its environment; an agent is a named role in it with its own worktree and branch `agent/<role>`.
