@@ -1,0 +1,48 @@
+{
+  "attempts": [
+    {
+      "fixture_classification": "denied-needs-cause-review",
+      "fixture_http_status": 403,
+      "live_result": "not-run",
+      "name": "merge-own-pr"
+    },
+    {
+      "fixture_classification": "denied-needs-cause-review",
+      "fixture_http_status": 403,
+      "live_result": "not-run",
+      "name": "native-push-default"
+    },
+    {
+      "fixture_classification": "inconclusive",
+      "fixture_http_status": 422,
+      "live_result": "not-run",
+      "name": "create-tag"
+    },
+    {
+      "fixture_classification": "allowed",
+      "fixture_http_status": 201,
+      "live_result": "not-run",
+      "name": "release-api"
+    },
+    {
+      "fixture_classification": "denied-needs-cause-review",
+      "fixture_http_status": 403,
+      "live_result": "not-run",
+      "name": "native-push-outside-agent-namespace"
+    }
+  ],
+  "limitations": [
+    "No native git push or API mutation was executed.",
+    "No deployment control was measured.",
+    "App actor_id meaning and organization inheritance remain unmeasured."
+  ],
+  "measurement": "offline-fixture",
+  "ruleset_view": {
+    "current_user_can_bypass": "never",
+    "current_user_can_bypass_present": true,
+    "integration_actor_ids": [],
+    "review_guard_present": true,
+    "visibility": "complete"
+  },
+  "status": "unverified"
+}
