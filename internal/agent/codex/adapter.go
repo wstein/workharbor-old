@@ -43,7 +43,7 @@ func (*Adapter) Name() string { return "codex" }
 // Capabilities implements agent.Adapter. Offline fixtures are not capability
 // evidence; native headless execution and production auth remain unverified.
 func (*Adapter) Capabilities() agent.Capabilities {
-	return agent.Capabilities{ContractVersion: agent.ContractVersion}
+	return agent.Capabilities{ContractVersion: agent.ContractVersion, ToolWatchdog: false}
 }
 
 func productionGate() error {

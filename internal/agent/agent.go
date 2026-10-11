@@ -56,6 +56,9 @@ type Capabilities struct {
 	AwaitingGuidance  bool `json:"awaiting_guidance"` // can raise a blocking question
 	ReportsQuota      bool `json:"reports_quota"`     // reports quota_exhausted with the reset time
 	ReportsUsage      bool `json:"reports_usage"`     // emits usage events with a typed payload (§5.7)
+	// ToolWatchdog requires correlated execution/output/wait events and confirmed
+	// tool-only cancellation through ToolWatchdogSession. False means uncovered.
+	ToolWatchdog bool `json:"tool_watchdog"`
 
 	AuthModes []AuthMode `json:"auth_modes"`
 }
@@ -114,6 +117,8 @@ type Event struct {
 	// Approval is set on an approval event: the record the audit entry is
 	// written from (design §5.4).
 	Approval *ApprovalRecord `json:"approval,omitempty"`
+	// Watchdog accompanies only the optional execution watchdog event kinds.
+	Watchdog *ToolWatchdogEvent `json:"watchdog,omitempty"`
 }
 
 // ApprovalRecord is what happened to one permission prompt: the request that

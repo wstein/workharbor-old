@@ -146,10 +146,30 @@ func (g *Gate) wrap(s agent.Session) agent.Session {
 		return nil
 	}
 	wrapped := &session{Session: s, gate: g}
+	w, watchdogErr := agent.WatchdogSession(g.Capabilities(), s)
 	if p, ok := s.(agent.Pauser); ok {
-		return &pauser{session: wrapped, pauser: p}
+		paused := &pauser{session: wrapped, pauser: p}
+		if watchdogErr == nil {
+			return &watchdogPauser{pauser: paused, ToolWatchdogSession: w}
+		}
+		return paused
+	}
+	if watchdogErr == nil {
+		return &watchdogSession{session: wrapped, ToolWatchdogSession: w}
 	}
 	return wrapped
+}
+
+// The optional stop-only interface preserves the underlying implementation.
+// Instruct and Continue still pass through their existing initiation gates.
+type watchdogSession struct {
+	*session
+	agent.ToolWatchdogSession
+}
+
+type watchdogPauser struct {
+	*pauser
+	agent.ToolWatchdogSession
 }
 
 type session struct {

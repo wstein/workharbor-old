@@ -215,6 +215,7 @@ func (a *Adapter) Capabilities() agent.Capabilities {
 		AwaitingGuidance:  false,
 		ReportsQuota:      true, // unverified rule, design §5.2
 		ReportsUsage:      true,
+		ToolWatchdog:      false, // correlated output and tool-only abort are unverified
 		AuthModes:         []agent.AuthMode{agent.AuthSubscription, agent.AuthAPIKey},
 	}
 }
