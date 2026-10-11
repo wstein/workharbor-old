@@ -31,6 +31,8 @@ const (
 	KindQuotaExhausted Kind = "quota_exhausted"
 	KindRunFailed      Kind = "run_failed"
 	KindRunEnded       Kind = "run_ended"
+	KindToolHung       Kind = "tool_hung"
+	KindToolAborted    Kind = "tool_aborted"
 	// KindBudgetWarning is a soft budget threshold reached; KindBudgetExceeded a
 	// hard limit that ended the task as failed.
 	KindBudgetWarning  Kind = "budget_warning"
@@ -75,6 +77,16 @@ func FromEvents(events []domain.Event) []Message {
 	var out []Message
 	for _, e := range events {
 		switch e.Kind {
+		case domain.EventToolHung, domain.EventToolAborted:
+			var p domain.ToolWatchdogNotice
+			if json.Unmarshal(e.Payload, &p) != nil || p.RunID == "" {
+				continue
+			}
+			kind := KindToolHung
+			if e.Kind == domain.EventToolAborted {
+				kind = KindToolAborted
+			}
+			out = append(out, Message{TaskID: e.TaskID, Kind: kind, RunID: p.RunID})
 		case domain.EventDecisionRaised:
 			var p domain.DecisionRaised
 			if json.Unmarshal(e.Payload, &p) != nil || (!p.Blocking && p.Cause != domain.CauseAgentMayRun) {
