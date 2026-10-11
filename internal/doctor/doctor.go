@@ -153,7 +153,7 @@ type Deps struct {
 const VendorTerms = "docs/manual/vendor-terms"
 
 // Checks returns every check in the order of §9.5. They share one loaded
-// configuration, read on first use.
+// configuration, loaded once for this diagnostic snapshot.
 func Checks(d Deps) []Check {
 	var (
 		cfg    *config.Config
@@ -179,7 +179,7 @@ func Checks(d Deps) []Check {
 	notVerified := func(why string) func(context.Context) (Status, string) {
 		return func(context.Context) (Status, string) { return NotVerified, why }
 	}
-	return withFixes(d, base([]basic{
+	checks := withFixes(d, base([]basic{
 		{"config", 1, func(context.Context) (Status, string) {
 			c, err := load()
 			if err != nil {
@@ -331,6 +331,10 @@ func Checks(d Deps) []Check {
 			return OK, "ntfy: " + host + ", topic and token files are private and valid; no test push is sent (§9.5)"
 		})},
 	}))
+	if c, err := load(); err == nil && c.Runtime.IsDocker() {
+		checks = append(checks, Check{Name: "bundledock-toolbox", Step: 4, Run: func(ctx context.Context) (Status, string) { return toolboxCheck(ctx, c.Runtime.Toolbox) }})
+	}
+	return checks
 }
 
 // Shared returns the checks that are no setup step of one account.
