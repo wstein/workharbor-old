@@ -3,7 +3,7 @@
 Paste this into a new coding session.
 It adds to [AGENTS.md](../AGENTS.md), which always applies.
 
-Model: Sonnet. Your security-relevant changes (AGENTS.md, Security-relevant paths) are reviewed by an Opus session before the push.
+Model: Sonnet. Your security-relevant changes (AGENTS.md, Security-relevant paths) are reviewed by an Opus or approved Sol high session before the push (AGENTS.md, Models).
 Context: run each issue in a fresh subagent of your lane (Sonnet, set by its starter per AGENTS.md, Models) in your lane's worktree, on a new branch, and keep only its conclusion and commits (AGENTS.md, Context and cost); never ask Werner to clear or compact.
 Board and issues: only through `scripts/board-snapshot.sh` and REST (AGENTS.md, GitHub rate limit).
 

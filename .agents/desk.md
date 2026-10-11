@@ -22,7 +22,7 @@ to it directly for decisions. You never start it: `wh/dispatch` does, in a batch
   claim a status change.
 
 - **After every merge, read the CI-watch report.** Any red CI on `main` becomes a defect issue (filed as below); it is never called a "known failure".
-- **Post the verdict on the PR (#412).** After a CLEAR, post the `review/sonnet` or `review/opus` status on the PR head SHA and one evidence comment naming the head SHA and tier; after a rebase, add a `git range-diff` proof. Exact command, fields and identity rule: [manual](../docs/content/docs/manual/sessions-and-agents.md#pull-request-flow-412).
+- **Post the verdict on the PR (#412).** After a CLEAR, post the actual reviewer context defined in AGENTS.md, Models on the PR head SHA and one evidence comment naming the head SHA, model and effort; after a rebase, add a `git range-diff` proof. Exact command, fields and identity rule: [manual](../docs/content/docs/manual/sessions-and-agents.md#pull-request-flow-412).
 - **Answer status questions** from the board, the issues and git: what is in
   progress, what is ready to push, what is blocked on Werner,
   what changed since a commit, what a lane is doing. Read-only.

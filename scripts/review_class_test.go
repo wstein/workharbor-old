@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/wstein/workharbor/internal/gittest"
 )
 
 // reviewClassRepo makes a repo with base commit "main" and a branch "topic"
@@ -17,11 +19,9 @@ func reviewClassRepo(t *testing.T, files ...string) string {
 	run := func(args ...string) {
 		cmd := exec.CommandContext(t.Context(), "git", args...) //nolint:gosec // fixed git
 		cmd.Dir = dir
-		cmd.Env = []string{
-			"PATH=/usr/bin:/bin:/opt/homebrew/bin:/usr/local/bin", "HOME=" + t.TempDir(),
+		cmd.Env = gittest.Env(t.TempDir(),
 			"GIT_AUTHOR_NAME=t", "GIT_AUTHOR_EMAIL=t@example.com",
-			"GIT_COMMITTER_NAME=t", "GIT_COMMITTER_EMAIL=t@example.com",
-		}
+			"GIT_COMMITTER_NAME=t", "GIT_COMMITTER_EMAIL=t@example.com")
 		if out, err := cmd.CombinedOutput(); err != nil {
 			t.Fatalf("git %v: %v\n%s", args, err, out)
 		}
@@ -54,10 +54,10 @@ func TestReviewClass(t *testing.T) {
 		files []string
 		want  []string
 	}{
-		{"ordinary", []string{"docs/guide.md", "README.md"}, []string{"class: ordinary", "required: review/sonnet or review/opus"}},
-		{"carve-out", []string{"scripts/x.sh"}, []string{"class: carve-out", "required: review/opus"}},
-		{"mixed", []string{"README.md", ".agents/dispatch.md"}, []string{"class: carve-out", "required: review/opus"}},
-		{"design mock readme", []string{"design/mock/README.md"}, []string{"class: carve-out", "required: review/opus"}},
+		{"ordinary", []string{"docs/guide.md", "README.md"}, []string{"class: ordinary", "required: review/sonnet or review/opus or review/gpt-6.1-sol-medium or review/gpt-6.1-sol-high"}},
+		{"carve-out", []string{"scripts/x.sh"}, []string{"class: carve-out", "required: review/opus or review/gpt-6.1-sol-high"}},
+		{"mixed", []string{"README.md", ".agents/dispatch.md"}, []string{"class: carve-out", "required: review/opus or review/gpt-6.1-sol-high"}},
+		{"design mock readme", []string{"design/mock/README.md"}, []string{"class: carve-out", "required: review/opus or review/gpt-6.1-sol-high"}},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -65,7 +65,7 @@ func TestReviewClass(t *testing.T) {
 			dir := reviewClassRepo(t, tc.files...)
 			cmd := exec.CommandContext(t.Context(), "sh", script, "topic", "main") //nolint:gosec // fixed script
 			cmd.Dir = dir
-			cmd.Env = []string{"PATH=/usr/bin:/bin:/opt/homebrew/bin:/usr/local/bin", "HOME=" + t.TempDir()}
+			cmd.Env = gittest.Env(t.TempDir())
 			out, err := cmd.CombinedOutput()
 			if err != nil {
 				t.Fatalf("review-class.sh: %v\n%s", err, out)
@@ -90,7 +90,7 @@ func TestReviewClassTreatsAnOptionLikeBaseAsARevision(t *testing.T) {
 	dir := reviewClassRepo(t, "scripts/x.sh")
 	cmd := exec.CommandContext(t.Context(), "sh", script, "topic", "--output=leak") //nolint:gosec // fixed script
 	cmd.Dir = dir
-	cmd.Env = []string{"PATH=/usr/bin:/bin:/opt/homebrew/bin:/usr/local/bin", "HOME=" + t.TempDir()}
+	cmd.Env = gittest.Env(t.TempDir())
 	out, err := cmd.CombinedOutput()
 	if err == nil {
 		t.Fatalf("an option-like base was accepted: %s", out)
@@ -113,7 +113,7 @@ func TestReviewClassFailsClosedOnAnUnknownRevision(t *testing.T) {
 	dir := reviewClassRepo(t, "docs/guide.md")
 	cmd := exec.CommandContext(t.Context(), "sh", script, "no-such-branch", "main") //nolint:gosec // fixed script
 	cmd.Dir = dir
-	cmd.Env = []string{"PATH=/usr/bin:/bin:/opt/homebrew/bin:/usr/local/bin", "HOME=" + t.TempDir()}
+	cmd.Env = gittest.Env(t.TempDir())
 	out, err := cmd.CombinedOutput()
 	var ee *exec.ExitError
 	if !errors.As(err, &ee) || ee.ExitCode() != 2 {

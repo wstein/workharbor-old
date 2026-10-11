@@ -5,8 +5,9 @@
 # or several (gh api --paginate --slurp). The latest status per context decides
 # (highest id), so a newer failure supersedes an older success. Passes only when a
 # required tier is the latest for its context, has state success and was created
-# by one of the allowed logins. carve-out needs review/opus; ordinary accepts
-# review/sonnet or review/opus. Empty login arguments are ignored; no login at all fails.
+# by one of the allowed logins. carve-out needs review/opus or
+# review/gpt-6.1-sol-high; ordinary also accepts review/sonnet and
+# review/gpt-6.1-sol-medium. Empty login arguments are ignored; no login at all fails.
 # Everything read from the JSON is data and is only compared by jq, never evaluated.
 set -u
 if [ "$#" -lt 3 ]; then
@@ -17,8 +18,8 @@ class=$1
 file=$2
 shift 2
 case "$class" in
-ordinary) tiers='["review/sonnet","review/opus"]' ;;
-carve-out) tiers='["review/opus"]' ;;
+ordinary) tiers='["review/sonnet","review/opus","review/gpt-6.1-sol-medium","review/gpt-6.1-sol-high"]' ;;
+carve-out) tiers='["review/opus","review/gpt-6.1-sol-high"]' ;;
 *)
   echo "gate: unknown class" >&2
   exit 2
