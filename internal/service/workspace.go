@@ -767,7 +767,7 @@ func unionHosts(a, b []string) []string {
 // brought up to date. It is the second half of launch: the run is saved, and the
 // egress requests, if any, are answered.
 func (w *Workspaces) startAgent(ctx context.Context, task, run domain.ID, ws domain.Workspace, a domain.Agent, prompt string, sl *slot, env RepoEnvironment) error {
-	if err := w.svc.durationAdmission(ctx, task, run); err != nil {
+	if err := w.svc.executionAdmission(ctx, task, run); err != nil {
 		w.svc.end(run, sl)
 		return err
 	}
@@ -812,7 +812,7 @@ func (w *Workspaces) startAgent(ctx context.Context, task, run domain.ID, ws dom
 	// The session outlives this start (the agent runs for hours): it gets a
 	// context that is never cancelled by Cancel of the start; Shutdown and a stop
 	// end it. A cancel that came while the agent was starting stops it at once.
-	if err := w.svc.durationAdmission(ctx, task, run); err != nil {
+	if err := w.svc.executionAdmission(ctx, task, run); err != nil {
 		w.svc.end(run, sl)
 		return err
 	}

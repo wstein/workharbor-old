@@ -56,7 +56,7 @@ func (s *Service) Resume(ctx context.Context, task domain.ID) (domain.ID, error)
 		return "", err
 	}
 	if r, ok := agg.LiveRun(); ok {
-		if err := s.durationAdmission(ctx, task, r.ID); err != nil {
+		if err := s.executionAdmission(ctx, task, r.ID); err != nil {
 			return "", err
 		}
 		// An environment this process did not start is stopped and started

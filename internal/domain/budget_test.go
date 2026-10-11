@@ -6,6 +6,17 @@ import (
 	"time"
 )
 
+func TestRetiredDurationBudgetCannotEndTask(t *testing.T) {
+	a, r, _ := newRunningAggregate(t)
+	a.TakeEvents()
+	if err := a.ExceedBudget(BudgetBreach{Scope: BudgetRun, Metric: BudgetDuration, RunID: r.ID, Limit: 1, Used: 48 * 60 * 60 * 1000}); err == nil {
+		t.Fatal("retired duration budget accepted")
+	}
+	if a.Task().State != TaskRunning || r.State != RunRunning || len(a.PendingEvents()) != 0 {
+		t.Fatal("retired duration budget changed lifecycle or audit")
+	}
+}
+
 func TestExceedBudgetFailsTheTaskAndStopsItsRun(t *testing.T) {
 	a, _, _ := newRunningAggregate(t)
 	if _, err := a.RaiseDecision(NewDecision{

@@ -47,14 +47,18 @@ func TestDurationBoundsAndTerminalReasonSurviveReopen(t *testing.T) {
 		t.Fatal(err)
 	}
 	run = a.Runs()[0]
-	if !run.EndedAt.Equal(end) || run.DurationMillis != 9000 || run.TerminalReason != "human_cancellation" {
+	if !run.EndedAt.Equal(end) || run.DurationMillis != 0 || run.TerminalReason != "human_cancellation" {
 		t.Fatalf("stored terminal=%+v", run)
 	}
-	// No transcript can alter durable bounds or terminal cause.
-	if err := a.AccountDuration(end.Add(time.Hour)); err != nil {
+	// Saving again after downtime cannot extend a terminal run's lifetime.
+	if _, err := st.SaveTask(bg, a); err != nil {
 		t.Fatal(err)
 	}
-	if a.Runs()[0].DurationMillis != 9000 {
+	a, err = st.LoadTask(bg, "t1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a.Runs()[0].DurationMillis != 0 {
 		t.Fatal("terminal duration kept growing")
 	}
 }
@@ -84,8 +88,8 @@ func TestLegacyBoundsRequireSufficientAuditEvidence(t *testing.T) {
 				if r.AdmittedAt.IsZero() {
 					t.Fatal("durable admission not reconstructed")
 				}
-			} else if err := loaded.AccountDuration(time.Now()); err == nil {
-				t.Fatal("unknown legacy allowance fabricated")
+			} else if !r.AdmittedAt.IsZero() || r.DurationMillis != 0 {
+				t.Fatal("unknown legacy bounds fabricated")
 			}
 		})
 	}

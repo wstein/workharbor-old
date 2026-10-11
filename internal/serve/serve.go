@@ -172,10 +172,6 @@ func Run(ctx context.Context, d Deps) error {
 	scfg := serviceConfig(d, logf)
 	svc := service.New(d.Store, d.Runtime, d.Agent, d.Clock, scfg)
 	defer svc.Shutdown()
-	durationCtx, stopDuration := context.WithCancel(ctx)
-	durationDone := make(chan struct{})
-	go func() { defer close(durationDone); svc.RunDurationBudgets(durationCtx) }()
-	defer func() { stopDuration(); <-durationDone }()
 	held, err := applyWorkflows(ctx, d, logf)
 	if err != nil {
 		return err

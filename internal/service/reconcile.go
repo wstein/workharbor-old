@@ -38,7 +38,6 @@ type Report struct {
 // Container addresses are read for nothing and never stored.
 func (s *Service) Reconcile(ctx context.Context) (Report, error) {
 	var rep Report
-	rep.Errors = append(rep.Errors, s.sweepDurations(ctx)...)
 	infos, err := s.rt.List(ctx, s.cfg.Owner)
 	if err != nil {
 		return rep, fmt.Errorf("reconcile: list environments: %w", err)
@@ -190,7 +189,7 @@ func (s *Service) recover(ctx context.Context, task, run domain.ID, rep *Report)
 	if !ok || (r.State != domain.RunInterrupted && r.State != domain.RunPaused) {
 		return nil
 	}
-	if err := s.durationAdmission(ctx, task, run); err != nil {
+	if err := s.executionAdmission(ctx, task, run); err != nil {
 		return err
 	}
 	// A workspace being rebuilt has its environment replaced: the old one is not
@@ -283,7 +282,7 @@ var errAttemptsUsedUp = errors.New("the run's launch attempts are used up")
 
 // launch sends one explicitly initiated resume and attaches the gated session.
 func (s *Service) launch(ctx context.Context, task, run domain.ID, sl *slot) error {
-	if err := s.durationAdmission(ctx, task, run); err != nil {
+	if err := s.executionAdmission(ctx, task, run); err != nil {
 		s.end(run, sl)
 		return err
 	}
@@ -325,7 +324,7 @@ func (s *Service) launch(ctx context.Context, task, run domain.ID, sl *slot) err
 	}
 	// The session outlives the call that starts it: an answer to a Decision comes
 	// in on a request that ends long before the agent does.
-	if err := s.durationAdmission(ctx, task, run); err != nil {
+	if err := s.executionAdmission(ctx, task, run); err != nil {
 		s.end(run, sl)
 		return err
 	}

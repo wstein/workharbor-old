@@ -83,9 +83,11 @@ type Run struct {
 	// ResumeAttempts counts launches of the agent that failed since the run
 	// last ran; it resets when the run is running again (design §5.3).
 	ResumeAttempts int
-	// Lifetime is supervisor wall time, including pauses and downtime.
-	AdmittedAt     time.Time
-	EndedAt        time.Time
+	// Lifecycle bounds and the initiating stop reason are audit-backed.
+	AdmittedAt time.Time
+	EndedAt    time.Time
+	// Legacy duration counters remain readable; new runs do not account or
+	// enforce elapsed wall time.
 	DurationMillis int64
 	DurationAt     time.Time
 	TerminalReason string

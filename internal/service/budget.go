@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/wstein/workharbor/internal/domain"
 	"github.com/wstein/workharbor/internal/store"
@@ -12,9 +11,8 @@ import (
 
 // Limit is a budget of one scope. A zero field is no limit.
 type Limit struct {
-	MaxDuration     time.Duration // supervisor wall time; zero disables the limit
-	MaxTokens       int64         // every token the agent reported: input, output, cache read and cache write
-	MaxCostMicroUSD int64         // the cost the agent reported, in millionths of a US dollar
+	MaxTokens       int64 // every token the agent reported: input, output, cache read and cache write
+	MaxCostMicroUSD int64 // the cost the agent reported, in millionths of a US dollar
 }
 
 // Budgets are the per-run and per-task limits of design §7.4. A soft
@@ -41,7 +39,7 @@ func (b Budgets) soft() int64 {
 }
 
 // counters are the totals a budget is compared with.
-type counters struct{ tokens, cost, duration int64 }
+type counters struct{ tokens, cost int64 }
 
 func total(rows []store.UsageRow) counters {
 	var c counters
@@ -68,40 +66,20 @@ func (s *Service) checkBudgets(ctx context.Context, task, run domain.ID) {
 	if !ok || r.State.Terminal() || agg.Task().State.Terminal() {
 		return
 	}
-	if b.PerRun.MaxDuration > 0 || b.PerTask.MaxDuration > 0 {
-		if err := s.update(ctx, task, func(a *domain.TaskAggregate) error { return s.accountDuration(a) }); err != nil {
-			s.report(err)
-			return
-		}
-		agg, err = s.store.LoadTask(ctx, task)
-		if err != nil {
-			s.report(err)
-			return
-		}
-		r, _ = agg.Run(run)
-	}
 	if b == (Budgets{}) {
 		return
 	}
 	runRows, err := s.store.UsageTotals(ctx, store.UsageFilter{TaskID: task, RunID: run}, store.GroupAll)
 	if err != nil {
 		s.report(fmt.Errorf("budget: %w", err))
-		if b.PerRun.MaxDuration <= 0 && b.PerTask.MaxDuration <= 0 {
-			return
-		}
+		return
 	}
 	taskRows, err := s.store.UsageTotals(ctx, store.UsageFilter{TaskID: task}, store.GroupAll)
 	if err != nil {
 		s.report(fmt.Errorf("budget: %w", err))
-		if b.PerRun.MaxDuration <= 0 && b.PerTask.MaxDuration <= 0 {
-			return
-		}
+		return
 	}
 	runCounts, taskCounts := total(runRows), total(taskRows)
-	runCounts.duration = r.DurationMillis
-	for _, rr := range agg.Runs() {
-		taskCounts.duration = domain.SatAdd(taskCounts.duration, rr.DurationMillis)
-	}
 	checks := []struct {
 		scope  domain.BudgetScope
 		run    domain.ID
@@ -119,7 +97,6 @@ func (s *Service) checkBudgets(ctx context.Context, task, run domain.ID) {
 		}{
 			{domain.BudgetTokens, c.limit.MaxTokens, c.counts.tokens},
 			{domain.BudgetCost, c.limit.MaxCostMicroUSD, c.counts.cost},
-			{domain.BudgetDuration, c.limit.MaxDuration.Milliseconds(), c.counts.duration},
 		} {
 			if m.limit <= 0 {
 				continue

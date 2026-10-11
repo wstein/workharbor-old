@@ -18,7 +18,7 @@ func TestInitiatingTerminalReasonsAreAuditedAndImmutable(t *testing.T) {
 			case "human_cancellation":
 				err = a.Cancel()
 			case "budget_breach":
-				err = a.ExceedBudget(BudgetBreach{Scope: BudgetRun, Metric: BudgetDuration, RunID: r.ID, Limit: 10, Used: 10})
+				err = a.ExceedBudget(BudgetBreach{Scope: BudgetRun, Metric: BudgetTokens, RunID: r.ID, Limit: 10, Used: 10})
 			case "kill_all":
 				err = a.CancelWithReason(reason)
 			case "lost_environment":

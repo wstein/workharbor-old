@@ -1,6 +1,9 @@
 package domain
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 // Audit entries of the resource budgets (design §5.7, §7.4). A soft threshold
 // warns and a hard limit ends the task as failed (D13, D21); both are kept
@@ -26,7 +29,7 @@ type BudgetMetric string
 // output, cache read and cache write), and the cost the agent reported.
 const (
 	BudgetTokens   BudgetMetric = "tokens"
-	BudgetDuration BudgetMetric = "duration" // supervisor milliseconds
+	BudgetDuration BudgetMetric = "duration" // legacy audit metric; never enforced
 	BudgetCost     BudgetMetric = "cost"     // millionths of a US dollar
 )
 
@@ -51,6 +54,9 @@ func NewBudgetWarned(task ID, b BudgetBreach, at time.Time) Event {
 // stopped, the open Decisions are superseded, and the audit entry says which
 // limit was reached. It is refused in a state the task cannot fail from.
 func (a *TaskAggregate) ExceedBudget(b BudgetBreach) error {
+	if b.Metric == BudgetDuration {
+		return fmt.Errorf("duration budgets are retired: a run has no time limit")
+	}
 	if !a.task.State.CanTransition(TaskFailed) {
 		return a.task.transition(TaskFailed) // reports the illegal transition
 	}
