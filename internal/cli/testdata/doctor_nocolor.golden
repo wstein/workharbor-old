@@ -75,16 +75,12 @@ Legend (colour is only decoration: the words are always printed)
 
     whr setup --only homebrew --prefix '<tmp>/whr' --user 'operator'
 
- x FAIL   brew-packages        not installed: container, git, gh
+ x FAIL   brew-packages        not installed: git, gh
 | ACTION  to fix brew-packages, run
 
     whr setup --only brew-packages --prefix '<tmp>/whr' --user 'operator'
 
  ? unverified  brew-pin             brew did not answer
-| ACTION  to fix brew-pin, run
-
-    whr setup --only brew-pin --prefix '<tmp>/whr' --user 'operator'
-
  + ok     prefix               <tmp>/whr
           exists and only the administrator writes it
  ? unverified  system-config        /etc/whr/config.json is not there yet:
@@ -141,18 +137,8 @@ run as operator
 run as operator
  ? unverified  container-start      this check describes the account operator
                runs as: check it as operator
-| ACTION  to fix container-start, run
-
-    whr setup --only container-start --prefix '<tmp>/whr' --user 'operator'
-
-run as operator
  ? unverified  container-kernel     this check describes the account operator
                runs as: check it as operator
-| ACTION  to fix container-kernel, run
-
-    whr setup --only container-kernel --prefix '<tmp>/whr' --user 'operator'
-
-run as operator
  ? unverified  standard-user-check  this check describes the account operator
                runs as: check it as operator
 | ACTION  to fix standard-user-check, run
@@ -361,150 +347,136 @@ What you need to do now
 
       whr setup --only homebrew --prefix '<tmp>/whr' --user 'operator'
 
-  13. brew-packages: not installed: container, git, gh
+  13. brew-packages: not installed: git, gh
 
       whr setup --only brew-packages --prefix '<tmp>/whr' --user 'operator'
 
-  14. brew-pin: brew did not answer
-
-      whr setup --only brew-pin --prefix '<tmp>/whr' --user 'operator'
-
-  15. screen-sharing: macOS keeps this under privacy controls (TCC) that a
+  14. screen-sharing: macOS keeps this under privacy controls (TCC) that a
       command cannot read or set
 
       whr setup --only screen-sharing --prefix '<tmp>/whr' --user 'operator'
 
-  16. tailscale: signing in is the human's; whr does not check a third party's
+  15. tailscale: signing in is the human's; whr does not check a third party's
       state
 
       whr setup --only tailscale --prefix '<tmp>/whr' --user 'operator'
 
-  17. tailscale-serve: the tailscale forward list did not answer
+  16. tailscale-serve: the tailscale forward list did not answer
 
       whr setup --only tailscale-serve --prefix '<tmp>/whr' --user 'operator'
 
-  18. config-dir: this check describes the account operator runs as: check it as
+  17. config-dir: this check describes the account operator runs as: check it as
       operator (run as operator)
 
       whr setup --only config-dir --prefix '<tmp>/whr' --user 'operator'
 
-  19. api-token: this check describes the account operator runs as: check it as
+  18. api-token: this check describes the account operator runs as: check it as
       operator (run as operator)
 
       whr setup --only api-token --prefix '<tmp>/whr' --user 'operator'
 
-  20. agent-key: this check describes the account operator runs as: check it as
+  19. agent-key: this check describes the account operator runs as: check it as
       operator (run as operator)
 
       whr setup --only agent-key --prefix '<tmp>/whr' --user 'operator'
 
-  21. ssh-ca: this check describes the account operator runs as: check it as
+  20. ssh-ca: this check describes the account operator runs as: check it as
       operator (run as operator)
 
       whr setup --only ssh-ca --prefix '<tmp>/whr' --user 'operator'
 
-  22. container-start: this check describes the account operator runs as: check
-      it as operator (run as operator)
-
-      whr setup --only container-start --prefix '<tmp>/whr' --user 'operator'
-
-  23. container-kernel: this check describes the account operator runs as: check
-      it as operator (run as operator)
-
-      whr setup --only container-kernel --prefix '<tmp>/whr' --user 'operator'
-
-  24. standard-user-check: this check describes the account operator runs as:
+  21. standard-user-check: this check describes the account operator runs as:
       check it as operator (run as operator)
 
       whr setup --only standard-user-check --prefix '<tmp>/whr' --user 'operator'
 
-  25. config-base: this check describes the account operator runs as: check it
+  22. config-base: this check describes the account operator runs as: check it
       as operator
 
       whr setup --only config-first --prefix '<tmp>/whr' --user 'operator'
 
-  26. public-url: this check describes the account operator runs as: check it as
+  23. public-url: this check describes the account operator runs as: check it as
       operator (run as operator)
 
       whr setup --only public-url --prefix '<tmp>/whr' --user 'operator'
 
-  27. github-app: this check describes the account operator runs as: check it as
+  24. github-app: this check describes the account operator runs as: check it as
       operator (run as operator)
 
       whr setup --only github-app --prefix '<tmp>/whr' --user 'operator'
 
-  28. config-github: this check describes the account operator runs as: check it
+  25. config-github: this check describes the account operator runs as: check it
       as operator (run as operator)
 
       whr setup --only config-github --prefix '<tmp>/whr' --user 'operator'
 
-  29. tool-store: this check describes the account operator runs as: check it as
+  26. tool-store: this check describes the account operator runs as: check it as
       operator (run as operator)
 
       whr setup --only tool-store --prefix '<tmp>/whr' --user 'operator'
 
-  30. service-install: this check describes the account operator runs as: check
+  27. service-install: this check describes the account operator runs as: check
       it as operator (run as operator)
 
       whr setup --only service-install --prefix '<tmp>/whr' --user 'operator'
 
-  31. drop-admin: this check describes the account operator runs as: check it as
+  28. drop-admin: this check describes the account operator runs as: check it as
       operator (run as operator)
 
       whr setup --only drop-admin --prefix '<tmp>/whr' --user 'operator'
 
-  32. config: open /Users/workharbor/.config/whr/config.json: no such file or
+  29. config: open /Users/workharbor/.config/whr/config.json: no such file or
       directory
 
       whr setup --only config-first --prefix '<tmp>/whr' --user 'operator'
 
-  33. server: the supervisor did not accept the token: configuration: open
+  30. server: the supervisor did not accept the token: configuration: open
       /Users/workharbor/.config/whr/config.json: no such file or directory (is
       the supervisor running?) (run as operator)
 
       whr setup --only service-install --prefix '<tmp>/whr' --user 'operator'
 
-  34. forge-key: needs a valid configuration (see the config check) (run as
+  31. forge-key: needs a valid configuration (see the config check) (run as
       operator)
 
       whr setup --prefix '<tmp>/whr' --user 'operator'
 
-  35. bot-key: needs a valid configuration (see the config check) (run as
+  32. bot-key: needs a valid configuration (see the config check) (run as
       operator)
 
       whr setup --prefix '<tmp>/whr' --user 'operator'
 
-  36. api-clients: needs a valid configuration (see the config check) (run as
+  33. api-clients: needs a valid configuration (see the config check) (run as
       operator)
 
       whr setup --prefix '<tmp>/whr' --user 'operator'
 
-  37. forge-app: needs a valid configuration (see the config check) (run as
+  34. forge-app: needs a valid configuration (see the config check) (run as
       operator)
 
       whr setup --prefix '<tmp>/whr' --user 'operator'
 
-  38. forge-board: needs a valid configuration (see the config check) (run as
+  35. forge-board: needs a valid configuration (see the config check) (run as
       operator)
 
       whr setup --prefix '<tmp>/whr' --user 'operator'
 
-  39. forge-workflow: needs a valid configuration (see the config check) (run as
+  36. forge-workflow: needs a valid configuration (see the config check) (run as
       operator)
 
       whr setup --prefix '<tmp>/whr' --user 'operator'
 
-  40. agent-login: needs a valid configuration (see the config check) (run as
+  37. agent-login: needs a valid configuration (see the config check) (run as
       operator)
 
       whr setup --prefix '<tmp>/whr' --user 'operator'
 
-  41. lane-agents: needs a valid configuration (see the config check) (run as
+  38. lane-agents: needs a valid configuration (see the config check) (run as
       operator)
 
       whr setup --prefix '<tmp>/whr' --user 'operator'
 
-  42. notifications: needs a valid configuration (see the config check) (run as
+  39. notifications: needs a valid configuration (see the config check) (run as
       operator)
 
       whr setup --prefix '<tmp>/whr' --user 'operator'

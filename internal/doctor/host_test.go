@@ -154,7 +154,7 @@ func TestTheHostChecksReadWhatMacOSPrints(t *testing.T) {
 	st = steps(t, hostDeps(bad))
 	want := map[string]string{
 		"power": "sleep is 10, want 0", "firewall": "stealth mode is off",
-		"filevault": "off", "brew-packages": "not installed: container, git, gh", "brew-pin": "not pinned",
+		"filevault": "off", "brew-packages": "not installed: git, gh", "brew-pin": "not pinned",
 	}
 	for name, sub := range want {
 		got, detail := status(st[name])
@@ -878,7 +878,7 @@ func TestDesktopGuideDependsOnTheTargetUser(t *testing.T) {
 		d := hostDeps(scripted{})
 		d.User, d.Account = c.user, c.account
 		st := steps(t, d)
-		for _, name := range []string{"container-kernel", "container-start", "standard-user-check"} {
+		for _, name := range []string{"standard-user-check"} {
 			g := st[name].Fix.Guide
 			if !strings.Contains(g, c.want) || strings.Contains(g, c.not) {
 				t.Errorf("%s as %s for %q: %q", name, c.user, c.account, g)
@@ -1042,10 +1042,10 @@ func TestUnreadablePathsAreNotVerifiedAndAbsentOnesFail(t *testing.T) {
 
 func TestBrewPackagesNotVerifiedOnAnUnexpectedBrewError(t *testing.T) {
 	const k = "/opt/homebrew/bin/brew list --formula --versions "
-	if got, detail := status(steps(t, hostDeps(scripted{k + "container": "ERR:exit status 1"}))["brew-packages"]); got != Fail {
+	if got, detail := status(steps(t, hostDeps(scripted{k + "git": "ERR:exit status 1"}))["brew-packages"]); got != Fail {
 		t.Errorf("not installed = %s %q", got, detail)
 	}
-	d := hostDeps(scripted{k + "container": "ERR:exit status 2: Error: cannot lock"})
+	d := hostDeps(scripted{k + "git": "ERR:exit status 2: Error: cannot lock"})
 	if got, detail := status(steps(t, d)["brew-packages"]); got != NotVerified || !strings.Contains(detail, "cannot lock") {
 		t.Errorf("odd brew error = %s %q", got, detail)
 	}

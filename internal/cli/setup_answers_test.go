@@ -28,7 +28,8 @@ func (h yesHost) Confirm(string) (bool, error) { h.asked++; return h.yes, nil }
 const testID = "v1.0.0@abc1234"
 
 // answersRig is a setup rig whose build has an identity and whose host answers
-// y; the one step is container-start: a command with no sudo, in the user part.
+// y; service-install records a fake command with no sudo in the user part.
+// The setupHost never executes it or contacts launchd.
 func answersRig(t *testing.T, yes bool) *setupRig {
 	t.Helper()
 	r := newSetupRig(t)
@@ -39,7 +40,7 @@ func answersRig(t *testing.T, yes bool) *setupRig {
 
 func (r *setupRig) setup(args ...string) (int, string) {
 	r.t.Helper()
-	code, _, errOut := r.run(append([]string{"setup", "--user", "werner", "--only", "container-start"}, args...)...)
+	code, _, errOut := r.run(append([]string{"setup", "--user", "werner", "--only", "service-install"}, args...)...)
 	return code, errOut
 }
 
@@ -69,7 +70,7 @@ func TestSaveAnswersThenAnswersRunsWithoutAskingAndLogsIt(t *testing.T) {
 		t.Fatalf("saved file: %v %v", fi, err)
 	}
 	data, _ := os.ReadFile(f) //nolint:gosec // a test path
-	if !strings.Contains(string(data), `"step": "container-start"`) || !strings.Contains(string(data), testID) {
+	if !strings.Contains(string(data), `"step": "service-install"`) || !strings.Contains(string(data), testID) {
 		t.Fatalf("%s", data)
 	}
 	first := readLog(t, r)
@@ -210,7 +211,7 @@ func TestUnattendedNeedsAnAnswersFileAndLeavesWhatItDoesNotDecideWithExit6(t *te
 	r.env.IsTerminal = func() bool { return false } // an unattended run needs no terminal
 	r.host.ran, r.host.asked = nil, 0
 	code, errOut := r.setup("--answers", f, "--unattended")
-	if code != exitcode.NeedsHuman || r.host.asked != 0 || len(r.host.ran) != 0 || !strings.Contains(errOut, "container-start need a person") || !strings.Contains(errOut, "--answers "+f+" --unattended") {
+	if code != exitcode.NeedsHuman || r.host.asked != 0 || len(r.host.ran) != 0 || !strings.Contains(errOut, "service-install need a person") || !strings.Contains(errOut, "--answers "+f+" --unattended") {
 		t.Fatalf("exit %d asked %d ran %v\n%s", code, r.host.asked, r.host.ran, errOut)
 	}
 	// the real file decides it: it runs, and the exit is never 6
@@ -296,7 +297,7 @@ func TestUnattendedAccountRiskNeverAsksOrRuns(t *testing.T) {
 	}
 	var out, errOut bytes.Buffer
 	env := Env{Stdin: strings.NewReader(""), Stdout: &out, Stderr: &errOut, Getenv: func(string) string { return r.home }, Setup: r.env}
-	code := Execute(context.Background(), env, []string{"setup", "--user", "werner", "--only", "container-start", "--answers", answersFile(t), "--unattended", "--config", configPath, "--prefix", filepath.Dir(filepath.Dir(r.exe))})
+	code := Execute(context.Background(), env, []string{"setup", "--user", "werner", "--only", "service-install", "--answers", answersFile(t), "--unattended", "--config", configPath, "--prefix", filepath.Dir(filepath.Dir(r.exe))})
 	if code != exitcode.NeedsHuman || r.host.asked != 0 || len(r.host.ran) != 0 || !strings.Contains(errOut.String(), "account risk needs your confirmation") {
 		t.Fatalf("exit %d asked %d ran %v: %s", code, r.host.asked, r.host.ran, errOut.String())
 	}
@@ -323,7 +324,7 @@ func TestSaveAnswersKeepsEligibleDecisionsInAMixedRun(t *testing.T) {
 	}
 }
 
-func TestUnattendedKernelWithoutRunningSystemExits6(t *testing.T) {
+func TestUnattendedKernelNeverInstallsAnything(t *testing.T) {
 	r := answersRig(t, true)
 	path := answersFile(t)
 	if _, errOut := r.setup("--save-answers", path); !strings.Contains(errOut, "saved 1 answers") {
@@ -332,7 +333,7 @@ func TestUnattendedKernelWithoutRunningSystemExits6(t *testing.T) {
 	r.host.ran, r.host.asked = nil, 0
 	r.env.IsTerminal = func() bool { return false }
 	code, _, errOut := r.run("setup", "--user", "werner", "--only", "container-kernel", "--answers", path, "--unattended")
-	if code != exitcode.NeedsHuman || len(r.host.ran) != 0 || r.host.asked != 0 || !strings.Contains(errOut, "container-kernel need a person") {
+	if code == exitcode.NeedsHuman || len(r.host.ran) != 0 || r.host.asked != 0 || strings.Contains(errOut, "kernel set") || !strings.Contains(errOut, "not verified") {
 		t.Fatalf("exit %d ran %v asked %d: %s", code, r.host.ran, r.host.asked, errOut)
 	}
 }
@@ -354,7 +355,7 @@ func TestAccountRiskQuitIsRecordedBeforeEngineStarts(t *testing.T) {
 	}
 	var out, errOut bytes.Buffer
 	env := Env{Stdin: strings.NewReader(""), Stdout: &out, Stderr: &errOut, Getenv: func(string) string { return r.home }, Setup: r.env}
-	code := Execute(context.Background(), env, []string{"setup", "--user", "werner", "--only", "container-start", "--config", configPath, "--prefix", filepath.Dir(filepath.Dir(r.exe))})
+	code := Execute(context.Background(), env, []string{"setup", "--user", "werner", "--only", "service-install", "--config", configPath, "--prefix", filepath.Dir(filepath.Dir(r.exe))})
 	if code != exitcode.Quit || len(r.host.ran) != 0 || r.host.asked != 1 {
 		t.Fatalf("exit %d asked %d ran %v: %s", code, r.host.asked, r.host.ran, errOut.String())
 	}
@@ -381,7 +382,7 @@ func TestAccountRiskQuitHintQuotesItsArguments(t *testing.T) {
 	}
 	var out, errOut bytes.Buffer
 	env := Env{Stdin: strings.NewReader(""), Stdout: &out, Stderr: &errOut, Getenv: func(string) string { return r.home }, Setup: r.env}
-	code := Execute(context.Background(), env, []string{"setup", "--user", "werner", "--only", "container-start", "--config", configPath, "--prefix", prefix})
+	code := Execute(context.Background(), env, []string{"setup", "--user", "werner", "--only", "service-install", "--config", configPath, "--prefix", prefix})
 	if code != exitcode.Quit {
 		t.Fatalf("exit %d: %s", code, errOut.String())
 	}

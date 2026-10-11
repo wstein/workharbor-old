@@ -46,8 +46,7 @@ const DefaultPrefix = "/opt/whr"
 const WhrUser = "workharbor"
 
 // DefaultBrewfile is the manual's Brewfile (step 5): the whole host software.
-const DefaultBrewfile = `brew "container"
-brew "git"
+const DefaultBrewfile = `brew "git"
 brew "gh"
 cask "tailscale-app"
 `
@@ -365,10 +364,7 @@ func hostSteps(d Deps) []Check {
 	if d.account() != WhrUser {
 		setupCommand += " --user '" + strings.ReplaceAll(d.account(), "'", "'\"'\"'") + "'"
 	}
-	brewfile := d.Brewing
-	if brewfile == "" {
-		brewfile = DefaultBrewfile
-	}
+	brewfile := DefaultBrewfile
 	configFirst := configBaseStep(d, "config-first", PhaseHost, filepath.Join(d.configDir(), "api.token"), filepath.Join(d.configDir(), "agent.env"))
 	configFirst.SetupOnly = true
 	if d.adminRun() {
@@ -754,7 +750,7 @@ func hostSteps(d Deps) []Check {
 			Name: "brew-packages", Phase: PhaseHost, Step: 5, Title: "the host packages of the Brewfile (manual step 5)",
 			Run: func(ctx context.Context) (Status, string) {
 				var missing []string
-				for _, f := range []string{"container", "git", "gh"} {
+				for _, f := range []string{"git", "gh"} {
 					out, err := d.output(ctx, "/opt/homebrew/bin/brew", "list", "--formula", "--versions", f)
 					if err != nil || strings.TrimSpace(out) == "" {
 						if st, msg, ok := notHere(err); ok {
@@ -771,7 +767,7 @@ func hostSteps(d Deps) []Check {
 				if len(missing) > 0 {
 					return Fail, "not installed: " + strings.Join(missing, ", ")
 				}
-				return OK, "container, git and gh are installed"
+				return OK, "git and gh are installed"
 			},
 			Fix: &Fix{
 				Desc: "write the Brewfile to a temporary file, then brew bundle it",
@@ -799,7 +795,6 @@ func hostSteps(d Deps) []Check {
 				}
 				return Fail, "container is not pinned"
 			},
-			Fix: &Fix{Cmds: []Cmd{{Argv: []string{"/opt/homebrew/bin/brew", "pin", "container"}}}},
 		},
 
 		{
@@ -1173,10 +1168,6 @@ func userSteps(d Deps) []Check {
 				}
 				return Fail, "the container system is not running"
 			},
-			Fix: &Fix{
-				Cmds:  []Cmd{{Argv: []string{"container", "system", "start", "--disable-kernel-install"}}},
-				Guide: "Run this in " + d.desktopSession() + ", not over SSH.",
-			},
 		},
 		{
 			Name: "container-kernel", Phase: PhaseUser, Step: 4, Title: "the Linux kernel containers boot (manual step 6)",
@@ -1204,10 +1195,6 @@ func userSteps(d Deps) []Check {
 					return Fail, "no Linux kernel is installed: containers cannot boot without one (read " + kernels + ", a location that is unverified until issue #73; if a kernel is installed elsewhere, tell issue #73)"
 				}
 				return OK, "a Linux kernel is installed (found in " + kernels + ", a location that is unverified until issue #73)"
-			},
-			Fix: &Fix{
-				Cmds:  []Cmd{{Argv: []string{"container", "system", "kernel", "set", "--recommended"}}},
-				Guide: "This must run in " + d.desktopSession() + ": the services live in that user's GUI launchd domain.",
 			},
 		},
 		{

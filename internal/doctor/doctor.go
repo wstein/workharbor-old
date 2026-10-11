@@ -142,7 +142,6 @@ type Deps struct {
 	UID     int
 	Whr     string // the running whr binary
 	Prefix  string // the selected installation prefix, "/opt/whr" by default
-	Brewing string // the Brewfile's text; empty means the one in this package
 	// Download fetches a small file over HTTPS for the Homebrew step; nil uses
 	// net/http. Tests pass a fake.
 	Download func(ctx context.Context, url string) ([]byte, error)
