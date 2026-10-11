@@ -2,8 +2,9 @@
 # Review class of a branch (#460). Usage: review-class.sh <branch> [base=origin/main]
 # Diffs base...branch, derives the class with gate-class.sh (the gate's one
 # derivation) and prints the class and the required review/* context(s) as
-# gate-check.sh maps them: carve-out needs review/opus; ordinary accepts
-# review/sonnet or review/opus. The mapping is mirrored by hand, not shared.
+# gate-check.sh maps them: carve-out needs review/opus or
+# review/gpt-6.1-sol-high; ordinary also accepts review/sonnet and
+# review/gpt-6.1-sol-medium. The mapping is mirrored by hand, not shared.
 set -u
 if [ "$#" -lt 1 ] || [ "$#" -gt 2 ]; then
   echo "usage: review-class.sh <branch> [base=origin/main]" >&2
@@ -22,8 +23,8 @@ if ! git diff --name-only --no-renames -z --end-of-options "$base...$branch" >"$
 fi
 class=$(sh "$dir/gate-class.sh" <"$tmp")
 case "$class" in
-ordinary) need="review/sonnet or review/opus" ;;
-carve-out) need="review/opus" ;;
+ordinary) need="review/sonnet or review/opus or review/gpt-6.1-sol-medium or review/gpt-6.1-sol-high" ;;
+carve-out) need="review/opus or review/gpt-6.1-sol-high" ;;
 *)
   echo "review-class: unexpected class" >&2
   exit 2
