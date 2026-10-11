@@ -18,6 +18,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/wstein/workharbor/internal/domain"
 	rt "github.com/wstein/workharbor/internal/runtime"
@@ -36,6 +37,7 @@ var ErrUnsupported = rt.ErrUnsupported
 type Adapter struct {
 	owner, endpoint, shim string
 	client                *http.Client
+	cleanupTimeout        time.Duration
 	mu                    sync.Mutex
 }
 
@@ -132,7 +134,11 @@ type container struct {
 		User   string
 		Labels map[string]string
 	}
-	State  struct{ Running bool }
+	State      struct{ Running bool }
+	HostConfig struct {
+		ReadonlyRootfs bool
+		Tmpfs          map[string]string
+	}
 	Mounts []struct {
 		Type, Name, Source, Destination string
 		RW                              bool
