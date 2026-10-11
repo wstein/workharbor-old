@@ -267,8 +267,15 @@ func (a *Adapter) Provision(ctx context.Context, p rt.PreparedSpec) (string, err
 	if err := a.ensureNetwork(ctx, s.Network); err != nil {
 		return "", err
 	}
+	private, hasPrivate := p.PrivateExecVolume()
 	for _, m := range s.Mounts {
 		if m.Kind == rt.MountVolume {
+			if hasPrivate && m.Source == private.Name {
+				if err := a.ensurePrivateVolume(ctx, private); err != nil {
+					return "", err
+				}
+				continue
+			}
 			if err := a.ensureVolume(ctx, m.Source); err != nil {
 				return "", err
 			}
@@ -279,6 +286,16 @@ func (a *Adapter) Provision(ctx context.Context, p rt.PreparedSpec) (string, err
 		ls[k] = v
 	}
 	ls[networkLabel] = s.Network.Name
+	if hasPrivate {
+		var v named
+		if err := a.request(ctx, http.MethodGet, "/volumes/"+url.PathEscape(private.Name), nil, &v); err != nil {
+			return "", err
+		}
+		if err := a.checkPrivateVolume(v, private); err != nil {
+			return "", err
+		}
+		ls[privateVolumeLabel], ls[privateSizeLabel], ls[privateNonceLabel] = private.Name, v.Labels[privateSizeLabel], v.Labels[privateNonceLabel]
+	}
 	mounts := make([]map[string]any, 0, len(s.Mounts))
 	for _, m := range s.Mounts {
 		kind := string(m.Kind)
@@ -313,6 +330,8 @@ type named struct {
 	ID         string `json:"Id"`
 	Name       string
 	Labels     map[string]string
+	Driver     string
+	Options    map[string]string
 	Containers map[string]json.RawMessage
 }
 
@@ -356,6 +375,9 @@ func (a *Adapter) Start(ctx context.Context, id string) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	return a.transition(ctx, id, false, func(c container) error {
+		if _, _, err := a.inspectPrivateVolume(ctx, c); err != nil {
+			return err
+		}
 		if c.State.Running {
 			return nil
 		}
@@ -439,7 +461,7 @@ func (a *Adapter) Delete(ctx context.Context, id string) error {
 		if err := a.request(ctx, http.MethodDelete, "/containers/"+url.PathEscape(id), nil, nil); err != nil && !missing(err) {
 			return err
 		}
-		return nil
+		return a.deletePrivateVolume(ctx, c)
 	})
 }
 
@@ -453,6 +475,9 @@ func (a *Adapter) RemoveVolume(ctx context.Context, name string) error {
 	}
 	if err != nil {
 		return err
+	}
+	if owned(v.Labels, a.owner, privateVolumeRole) {
+		return rt.ErrVolumeBusy
 	}
 	if !owned(v.Labels, a.owner, "volume") {
 		return rt.ErrNotOwned
@@ -507,7 +532,7 @@ func (a *Adapter) Inventory(ctx context.Context) (rt.Inventory, error) {
 		return out, err
 	}
 	for _, v := range volumes.Volumes {
-		if owned(v.Labels, a.owner, "volume") {
+		if owned(v.Labels, a.owner, "volume") || owned(v.Labels, a.owner, privateVolumeRole) {
 			out.Volumes = append(out.Volumes, v.Name)
 		}
 	}

@@ -28,7 +28,20 @@ func transitionName(id string) string {
 func (a *Adapter) transition(ctx context.Context, id string, deleting bool, operation func(container) error) error {
 	c, err := a.find(ctx, id)
 	if deleting && errors.Is(err, rt.ErrNotFound) {
-		return nil
+		// A prior deletion can remove its environment before private resource
+		// cleanup fails. Its retained reservation remains authoritative.
+		var guard container
+		guardErr := a.request(ctx, http.MethodGet, "/containers/"+transitionName(id)+"/json", nil, &guard)
+		if missing(guardErr) {
+			return nil
+		}
+		if guardErr != nil {
+			return guardErr
+		}
+		if !owned(guard.Config.Labels, a.owner, transitionRole) || guard.Config.Labels[leaseEnvironmentLabel] != id {
+			return rt.ErrNotOwned
+		}
+		return fmt.Errorf("docker: incomplete deletion retains a transition; operator inspection required: %w", rt.ErrVolumeBusy)
 	}
 	if err != nil {
 		return err
@@ -73,6 +86,9 @@ func (a *Adapter) transition(ctx context.Context, id string, deleting bool, oper
 func uncertainTransition(err error) bool {
 	if err == nil {
 		return false
+	}
+	if errors.Is(err, errPrivateCleanup) {
+		return true
 	}
 	var api *apiError
 	if errors.As(err, &api) {
