@@ -17,7 +17,7 @@ import (
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprintf(os.Stderr, "usage: whr-shim <run|kill|chown> [flags] [cmd...]\n")
+		fmt.Fprintf(os.Stderr, "usage: whr-shim <run|kill|chown|reserve-env> [flags] [cmd...]\n")
 		os.Exit(2)
 	}
 	switch os.Args[1] {
@@ -25,6 +25,11 @@ func main() {
 		runCmd(os.Args[2:])
 	case "kill":
 		killCmd(os.Args[2:])
+	case "reserve-env":
+		if err := reserveCmd(os.Args[2:]); err != nil {
+			fmt.Fprintf(os.Stderr, "reservation: %v\n", err)
+			os.Exit(1)
+		}
 	case "chown":
 		if err := chownCmd(os.Args[2:]); err != nil {
 			fmt.Fprintf(os.Stderr, "chown: %v\n", err)
