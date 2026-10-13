@@ -3,7 +3,7 @@ module github.com/wstein/workharbor
 go 1.26.9
 
 require (
-	github.com/a-h/templ v0.3.1020
+	github.com/a-h/templ v0.3.1070
 	github.com/go-webauthn/webauthn v0.18.2
 	github.com/spf13/cobra v1.10.2
 	golang.org/x/crypto v0.57.0
