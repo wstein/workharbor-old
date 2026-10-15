@@ -11,6 +11,13 @@ RUN dnf -y --setopt=install_weak_deps=False install \
     && useradd -u 1000 -m -s /bin/zsh workharbor
 COPY whr-git /usr/local/bin/git
 RUN chmod 0755 /usr/local/bin/git
+# The BundleDock shared shell layer (Git/jj shortcuts and the starship prompt, the
+# same in zsh, bash, fish and Nushell), dormant until the toolbox is mounted read-only
+# at /opt/bundledock/toolbox. The toolbox's bin goes last on PATH, so it never shadows
+# the git wrapper or the image's tools; its share goes first in XDG_DATA_DIRS, where
+# fish and Nushell find their files. HOME here is the human's own volume, and every
+# git the prompt or a shortcut runs goes through the wrapper.
+
 # The console's sshd (issue #32): started by the supervisor as the console user, with
 # the certificate authority's public key in WHR_SSH_CA. The configuration is in the
 # image; a login shell reads the proxy variables whr-sshd leaves in /tmp/whr-proxy-vars.
@@ -20,4 +27,7 @@ RUN chmod 0755 /usr/local/bin/whr-sshd \
     && chmod 0644 /etc/whr/sshd_config \
     && printf '%s\n' '[ -r /tmp/whr-proxy-vars ] && . /tmp/whr-proxy-vars' > /etc/profile.d/whr-env.sh \
     && mkdir -p /etc \
-    && printf '%s\n' '[ -r /tmp/whr-proxy-vars ] && . /tmp/whr-proxy-vars' >> /etc/zshenv
+    && printf '%s\n' 'case ":$PATH:" in *:/opt/bundledock/toolbox/bin:*) ;; *) [ -d /opt/bundledock/toolbox/share ] && { PATH=$PATH:/opt/bundledock/toolbox/bin; XDG_DATA_DIRS=/opt/bundledock/toolbox/share:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}; export PATH XDG_DATA_DIRS; } ;; esac' > /etc/profile.d/whr-toolbox.sh \
+    && printf '%s\n' '[ -r /opt/bundledock/toolbox/share/shell/init.zsh ] && . /opt/bundledock/toolbox/share/shell/init.zsh' >> /etc/zshrc \
+    && printf '%s\n' '[ -r /opt/bundledock/toolbox/share/shell/init.bash ] && . /opt/bundledock/toolbox/share/shell/init.bash' >> /etc/bashrc \
+    && printf '%s\n' '[ -r /tmp/whr-proxy-vars ] && . /tmp/whr-proxy-vars' 'case ":$PATH:" in *:/opt/bundledock/toolbox/bin:*) ;; *) [ -d /opt/bundledock/toolbox/share ] && { PATH=$PATH:/opt/bundledock/toolbox/bin; XDG_DATA_DIRS=/opt/bundledock/toolbox/share:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}; export PATH XDG_DATA_DIRS; } ;; esac' >> /etc/zshenv
