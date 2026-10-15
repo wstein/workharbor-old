@@ -3,7 +3,7 @@
 # workspace whose .git an agent wrote. No Docker CLI and no container engine, no
 # credentials. The digest is the one of the base image (internal/baseimage); changing
 # either file changes the image's tag, so the next start builds it again.
-FROM docker.io/library/ubuntu@sha256:008173c23f95b170204355c12626cb5a965d779a7e1283b09e9cffbb1bf33ca3
+FROM docker.io/library/ubuntu@sha256:f144425ff09be612d6d9ad965196e9cdc23dae1f42110a8a11a3e9a8198759f7
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         git zsh fish jq curl ripgrep tmux vim-tiny make less util-linux procps ca-certificates openssh-server openssh-client \
