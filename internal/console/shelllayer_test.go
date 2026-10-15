@@ -95,16 +95,16 @@ func TestToolboxEnvironmentLine(t *testing.T) {
 			for _, mounted := range []bool{false, true} {
 				dir := filepath.Join(t.TempDir(), "toolbox")
 				if mounted {
-					if err := os.MkdirAll(filepath.Join(dir, "share"), 0o755); err != nil {
+					if err := os.MkdirAll(filepath.Join(dir, "share"), 0o750); err != nil {
 						t.Fatal(err)
 					}
 				}
 				rc := filepath.Join(t.TempDir(), "rc")
-				if err := os.WriteFile(rc, []byte(strings.ReplaceAll(line, toolbox, dir)+"\n"), 0o644); err != nil {
+				if err := os.WriteFile(rc, []byte(strings.ReplaceAll(line, toolbox, dir)+"\n"), 0o600); err != nil {
 					t.Fatal(err)
 				}
 				script := ". " + rc + "; . " + rc + `; printf '%s\n%s\n' "$PATH" "$XDG_DATA_DIRS"`
-				cmd := exec.Command(sh, "-c", script)
+				cmd := exec.CommandContext(t.Context(), sh, "-c", script) //nolint:gosec // sh, bash or zsh running the image's own line in a temporary directory
 				cmd.Env = []string{"PATH=/usr/local/bin:/usr/bin:/bin"}
 				out, err := cmd.Output()
 				if err != nil {
